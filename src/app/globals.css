@@ -666,6 +666,34 @@ code {
   line-height: 1.5;
 }
 
+.settings-ptt {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 18px;
+  color: #5c4a38;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.settings-ptt input {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  accent-color: #1f6f62;
+}
+
+.settings-ptt label {
+  cursor: pointer;
+}
+
+.settings-ptt span {
+  display: block;
+  margin-bottom: 2px;
+  color: #2b2118;
+  font-weight: 700;
+}
+
 .settings-toolbar {
   margin-top: 16px;
 }

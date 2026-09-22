@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { PointerEvent } from "react";
 import { Mic, MicOff, Phone, PhoneOff, Settings, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,11 +23,18 @@ export function IntakeScreen({
   onCall,
   onHangup,
   onMute,
+  pushToTalkPointerHandlers,
 }: {
   snapshot: VoiceCallSnapshot;
   onCall: () => void;
   onHangup: () => void;
   onMute: (muted: boolean) => void;
+  pushToTalkPointerHandlers: {
+    onPointerDown: (event: PointerEvent<HTMLButtonElement>) => void;
+    onPointerUp: () => void;
+    onPointerCancel: () => void;
+    onLostPointerCapture: () => void;
+  };
 }) {
   const live = snapshot.status === "live";
   const busy =
@@ -111,8 +119,9 @@ export function IntakeScreen({
               </p>
             ) : (
               <p>
-                Eve will greet you, ask why you called, and keep a transcript
-                for handoff. No claims are filed from this demo.
+                {snapshot.pushToTalk && live
+                  ? "Push-to-talk is on. Hold Space or the mic button to speak."
+                  : "Eve will greet you, ask why you called, and keep a transcript for handoff. No claims are filed from this demo."}
               </p>
             )}
           </div>
@@ -126,10 +135,23 @@ export function IntakeScreen({
           size="icon"
           className="control-side"
           disabled={!live}
-          onClick={() => onMute(!snapshot.muted)}
-          aria-label={snapshot.muted ? "Unmute microphone" : "Mute microphone"}
+          onClick={() => {
+            if (!snapshot.pushToTalk) onMute(!snapshot.muted);
+          }}
+          aria-label={
+            snapshot.pushToTalk
+              ? snapshot.talking
+                ? "Talking. Release to send."
+                : "Hold to talk"
+              : snapshot.muted
+                ? "Unmute microphone"
+                : "Mute microphone"
+          }
+          aria-pressed={snapshot.pushToTalk ? snapshot.talking : undefined}
+          aria-keyshortcuts={snapshot.pushToTalk ? "Space" : undefined}
+          {...pushToTalkPointerHandlers}
         >
-          {snapshot.muted ? <MicOff /> : <Mic />}
+          {snapshot.pushToTalk && !snapshot.talking ? <MicOff /> : <Mic />}
         </Button>
         {canCall ? (
           <Button
@@ -154,7 +176,17 @@ export function IntakeScreen({
           </Button>
         )}
         <div className="control-side mute-label">
-          {snapshot.muted ? "Muted" : live ? "Open" : "Mic"}
+          {snapshot.pushToTalk
+            ? snapshot.talking
+              ? "Talking"
+              : live
+                ? "Hold Space"
+                : "PTT"
+            : snapshot.muted
+              ? "Muted"
+              : live
+                ? "Open"
+                : "Mic"}
         </div>
       </footer>
     </div>
