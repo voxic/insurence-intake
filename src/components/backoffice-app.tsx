@@ -10,7 +10,7 @@ const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD
 export function BackofficeApp({ view }: { view: "overview" | "customers" | "products" | "pricing" | "claims" }) {
   const [data, setData] = useState<BackofficeState | null>(null); const [query, setQuery] = useState(""); const [quote, setQuote] = useState<{ premium: number; ruleVersion: number } | null>(null);
   const load = async () => { const [customers, products, policies, pricingRules, claims] = await Promise.all(["customers", "products", "policies", "pricing/rules", "claims"].map(async (path) => (await fetch(`/api/backoffice/${path}`)).json())); setData({ customers: customers.customers, products: products.products, policies: policies.policies, pricingRules: pricingRules.rules, claims: claims.claims }); };
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { const timer = window.setTimeout(() => { void load(); }, 0); return () => window.clearTimeout(timer); }, []);
   const reset = async () => { if (window.confirm("Reset all fake demo data?")) { await fetch("/api/backoffice/reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmation: "RESET_DEMO_DATA" }) }); await load(); } };
   const filteredCustomers = useMemo(() => data?.customers.filter((customer) => `${customer.name} ${customer.email}`.toLowerCase().includes(query.toLowerCase())) ?? [], [data, query]);
   if (!data) return <main className="backoffice-loading">Loading demo workspace…</main>;
