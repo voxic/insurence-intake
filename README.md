@@ -29,9 +29,14 @@ Open [http://127.0.0.1:4317](http://127.0.0.1:4317). The key must stay on the se
 
 | Variable | Where | Purpose |
 | --- | --- | --- |
-| `XAI_API_KEY` | `.env.local` only | Used by `POST /api/session` to mint an ephemeral client secret from `https://api.x.ai/v1/realtime/client_secrets`. |
+| `XAI_API_KEY` | `.env.local` / Fly secrets only | Used by `POST /api/session` to mint an ephemeral client secret from `https://api.x.ai/v1/realtime/client_secrets`. Never sent to the browser, MCP responses, logs, or git. |
+| `MCP_AUTH_TOKEN` | `.env.local` / Fly secrets only | Server-held bearer for Streamable HTTP MCP (`Authorization: Bearer …`). Min 24 characters. Required for `npm run mcp:http` and `npm run start:public`. |
+| `SESSION_ACCESS_TOKEN` | `.env.local` / Fly secrets only | Shared secret required by `POST /api/session` on the public host. Min 16 characters. **Required** by `npm run start:public` — it refuses to boot without it, so the public URL never mints Realtime tokens (and thus never spends `XAI_API_KEY`) for anonymous callers. Unset locally = open. |
+| `DATA_DIR` | Fly volume | Persistent JSON/transcript root, read at runtime by both Next and MCP. Defaults to `./data`. Set to `/data` on Fly. |
 
-Do **not** prefix this with `NEXT_PUBLIC_`. The browser never receives the long-lived key.
+Do **not** prefix these with `NEXT_PUBLIC_`. The browser never receives the long-lived xAI key, the MCP bearer, or the session access token.
+
+Optional: `SESSION_RATE_LIMIT` (default `10`) and `SESSION_RATE_WINDOW_MS` (default `60000`) add a lightweight per-client rate limit on `POST /api/session`; set `SESSION_RATE_LIMIT=0` to disable. Single instance only.
 
 ## How a call starts
 
@@ -82,26 +87,108 @@ Storage lives in `data/backoffice/seed.json` (committed) and a gitignored `state
 
 ## Demo MCP connector
 
-The read-only demo MCP server uses the same `data/backoffice/seed.json` / local
+The demo MCP server uses the same `data/backoffice/seed.json` / local
 backoffice state as `/backoffice`. It exposes redacted synthetic customers,
-products, price indications, and claims; it has no write tools and never
+products, price indications, and claims; it has **no write tools** and never
 returns call transcripts. Price results are non-binding indications, not quotes.
+Confirmed demo-claim creation stays on the Next.js server (`POST /api/realtime/tools`)
+with the existing call-session confirmation binding — it is not a public MCP tool.
 
-For a local MCP Inspector or Grok Bot connector that supports stdio:
+### Local stdio
 
 ```bash
 npm run mcp:stdio
 ```
 
-For a Streamable HTTP connector, start the separate process and configure the
-client with `http://127.0.0.1:4318/mcp`:
+### Local Streamable HTTP (authenticated)
+
+Set `MCP_AUTH_TOKEN` in `.env.local`, then:
 
 ```bash
+set -a && source .env.local && set +a
 npm run mcp:http
 ```
 
-The HTTP demo listener is local-only and intentionally has no production
-authentication layer. Do not expose it outside a local demo environment.
+Connector URL: `http://127.0.0.1:4318/mcp`  
+Auth header: `Authorization: Bearer <MCP_AUTH_TOKEN>`
+
+The standalone MCP process still defaults to loopback (`MCP_HOST=127.0.0.1`).
+Unauthenticated or wrong-token requests receive `401`.
+
+### Grok Bot (public HTTPS)
+
+Use the Fly (or equivalent) HTTPS origin — not loopback:
+
+| | |
+| --- | --- |
+| Connector URL | `https://<app>.fly.dev/mcp` |
+| Transport | Streamable HTTP |
+| Auth header | `Authorization: Bearer <MCP_AUTH_TOKEN>` |
+
+Walkthrough once the connector is attached:
+
+1. Ask Grok Bot to `list_demo_products` or describe Auto Core coverage.
+2. Search a synthetic customer (`search_demo_customers` with name `Ada`).
+3. Look up a claim card (`search_demo_claims` with a partial claim number such as `26002`), then `get_demo_claim_status` with that claim ID **and** its customer ID.
+4. Confirm there is no create/update claim tool on MCP. To file a demo claim, use the desk-phone Eve flow (verified policy + single-use confirmation on the Next app).
+
+Do not paste `MCP_AUTH_TOKEN` into client-side app code, README screenshots, or git.
+
+## Public single-instance deploy (Fly.io)
+
+JSON backoffice state and transcripts need one process and a disk. This repo is **not** for Vercel serverless JSON files.
+
+`Dockerfile` + `fly.toml` run Next (desk phone + backoffice) and MCP behind one public port:
+
+- `https://<app>.fly.dev/` — Next app (backoffice/desk-phone; synthetic data, public-ok)
+- `https://<app>.fly.dev/mcp` — Streamable HTTP MCP (`MCP_AUTH_TOKEN` bearer required)
+- `https://<app>.fly.dev/api/session` — Realtime token mint (`SESSION_ACCESS_TOKEN` required)
+- `https://<app>.fly.dev/healthz` — **liveness only**: returns `ok` when the public proxy is up. It does not check upstream readiness and returns no secrets. Use it only as a Fly health check, not as a data or auth signal.
+
+### Required Fly secrets
+
+Set these with `fly secrets set` (never in `fly.toml [env]`, never in git):
+
+| Secret | Purpose |
+| --- | --- |
+| `XAI_API_KEY` | Realtime token mint. Stays server-side only. |
+| `MCP_AUTH_TOKEN` | Bearer for `/mcp` (min 24 chars). |
+| `SESSION_ACCESS_TOKEN` | Required gate for `POST /api/session` (min 16 chars). Without it the public process refuses to boot. |
+
+```bash
+fly launch --copy-config --no-deploy
+fly volumes create acme_intake_data --region sjc --size 1 --yes
+fly secrets set \
+  XAI_API_KEY="..." \
+  MCP_AUTH_TOKEN="$(openssl rand -hex 24)" \
+  SESSION_ACCESS_TOKEN="$(openssl rand -hex 16)"
+fly deploy --ha=false
+fly scale count 1
+```
+
+Keep **exactly one** machine. `fly.toml` already sets `min_machines_running = 1` and `auto_stop_machines = "off"`. The volume is mounted at `/data`; `DATA_DIR=/data` is set in the container **before** the build and read lazily at runtime, so Next backoffice writes and MCP reads share the same volume. Seed JSON stays in the image.
+
+### Starting a call on the public host
+
+`POST /api/session` requires the session token:
+
+```bash
+curl -X POST https://<app>.fly.dev/api/session \
+  -H "Authorization: Bearer $SESSION_ACCESS_TOKEN"
+```
+
+Missing or wrong token → `401`. The token is **not** shipped to the browser, so the in-browser desk-phone demo is intended for local use (where the gate is unset) or for an operator who supplies the token. MCP and the synthetic backoffice are the public surfaces.
+
+Local equivalent of the public process (requires both `MCP_AUTH_TOKEN` and `SESSION_ACCESS_TOKEN`):
+
+```bash
+npm run build
+MCP_AUTH_TOKEN="$(openssl rand -hex 24)" \
+SESSION_ACCESS_TOKEN="$(openssl rand -hex 16)" \
+PORT=8080 DATA_DIR=./data npm run start:public
+```
+
+Then MCP is `http://127.0.0.1:8080/mcp` with the bearer header, and `/api/session` needs the session token.
 
 ## Stack
 

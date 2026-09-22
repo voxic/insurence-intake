@@ -1,7 +1,18 @@
 import { NextResponse } from "next/server";
 import { createLiveIntakeCall } from "@/lib/live-intake/call-state";
+import {
+  clientKeyFrom,
+  configuredSessionAccessToken,
+  createRateLimiter,
+  isAuthorizedSessionRequest,
+  sessionCredentialFrom,
+  sessionRateLimitConfig,
+} from "@/lib/session-guard";
 
 const CLIENT_SECRETS_URL = "https://api.x.ai/v1/realtime/client_secrets";
+
+// Single-instance only (scale=1). Protects the real XAI_API_KEY from a public URL.
+const sessionRateLimiter = createRateLimiter(sessionRateLimitConfig());
 
 function extractToken(payload: Record<string, unknown>) {
   if (typeof payload.value === "string" && payload.value) {
@@ -31,10 +42,35 @@ function extractToken(payload: Record<string, unknown>) {
 export async function GET() {
   return NextResponse.json({
     configured: Boolean(process.env.XAI_API_KEY),
+    accessTokenRequired: Boolean(configuredSessionAccessToken()),
   });
 }
 
-export async function POST() {
+export async function POST(request: Request) {
+  const credential = sessionCredentialFrom({
+    authorization: request.headers.get("authorization"),
+    sessionAccessToken: request.headers.get("x-session-access-token"),
+  });
+  if (!isAuthorizedSessionRequest(credential)) {
+    return NextResponse.json(
+      { error: "A valid session access token is required to mint a Realtime token." },
+      { status: 401, headers: { "WWW-Authenticate": 'Bearer realm="session"' } },
+    );
+  }
+
+  const decision = sessionRateLimiter.check(
+    clientKeyFrom({
+      flyClientIp: request.headers.get("fly-client-ip"),
+      forwardedFor: request.headers.get("x-forwarded-for"),
+    }),
+  );
+  if (!decision.allowed) {
+    return NextResponse.json(
+      { error: "Too many Realtime token requests. Try again shortly." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(decision.retryAfterMs / 1000)) } },
+    );
+  }
+
   const apiKey = process.env.XAI_API_KEY;
   if (!apiKey) {
     return NextResponse.json(

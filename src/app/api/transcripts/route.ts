@@ -1,9 +1,9 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
+import { transcriptDir } from "@/lib/data-paths";
 import type { IntakeCall } from "@/lib/types";
 
-const TRANSCRIPT_DIR = path.join(process.cwd(), "data", "transcripts");
 const memory = new Map<string, IntakeCall>();
 
 function isCall(value: unknown): value is IntakeCall {
@@ -17,18 +17,20 @@ function isCall(value: unknown): value is IntakeCall {
 }
 
 async function ensureDir() {
-  await mkdir(TRANSCRIPT_DIR, { recursive: true });
+  const dir = transcriptDir();
+  await mkdir(dir, { recursive: true });
+  return dir;
 }
 
 export async function GET() {
-  await ensureDir();
+  const dir = await ensureDir();
   const fromMemory = [...memory.values()];
-  const files = await readdir(TRANSCRIPT_DIR).catch(() => []);
+  const files = await readdir(dir).catch(() => []);
   const fromDisk: IntakeCall[] = [];
   for (const file of files) {
     if (!file.endsWith(".json")) continue;
     try {
-      const raw = await readFile(path.join(TRANSCRIPT_DIR, file), "utf8");
+      const raw = await readFile(path.join(dir, file), "utf8");
       const parsed = JSON.parse(raw) as unknown;
       if (isCall(parsed) && !memory.has(parsed.id)) {
         fromDisk.push(parsed);
@@ -50,9 +52,9 @@ export async function POST(request: Request) {
   }
 
   memory.set(body.id, body);
-  await ensureDir();
+  const dir = await ensureDir();
   await writeFile(
-    path.join(TRANSCRIPT_DIR, `${body.id}.json`),
+    path.join(dir, `${body.id}.json`),
     JSON.stringify(body, null, 2),
     "utf8",
   );

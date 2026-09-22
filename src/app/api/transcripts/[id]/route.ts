@@ -1,9 +1,8 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
+import { transcriptDir } from "@/lib/data-paths";
 import type { IntakeCall } from "@/lib/types";
-
-const TRANSCRIPT_DIR = path.join(process.cwd(), "data", "transcripts");
 
 export async function GET(
   _request: Request,
@@ -11,7 +10,7 @@ export async function GET(
 ) {
   const { id } = await context.params;
   try {
-    const raw = await readFile(path.join(TRANSCRIPT_DIR, `${id}.json`), "utf8");
+    const raw = await readFile(path.join(transcriptDir(), `${id}.json`), "utf8");
     const call = JSON.parse(raw) as IntakeCall;
     return NextResponse.json(call);
   } catch {

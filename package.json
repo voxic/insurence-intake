@@ -6,7 +6,9 @@
     "dev": "next dev --hostname 127.0.0.1 --port 4317",
     "build": "next build",
     "start": "next start --hostname 127.0.0.1 --port 4317",
+    "start:public": "node scripts/public-demo.mjs",
     "lint": "eslint",
+    "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "mcp:stdio": "tsx src/mcp/stdio.ts",
     "mcp:http": "tsx src/mcp/http.ts"

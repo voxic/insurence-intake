@@ -1,0 +1,12 @@
+.git
+.next
+node_modules
+coverage
+.env
+.env.*
+!.env.example
+data/transcripts
+data/backoffice/state.json
+agent-tools
+*.md
+!README.md

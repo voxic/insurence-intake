@@ -1,24 +1,24 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { backofficeSeedPath, backofficeStateDir, backofficeStatePath } from "@/lib/data-paths";
 import type { BackofficeState, Claim, ClaimEvent, ClaimStatus, Customer, Policy, PricingRule, Product } from "./types";
 
-const DATA_DIR = path.join(process.cwd(), "data", "backoffice");
-const SEED_PATH = path.join(DATA_DIR, "seed.json");
-const STATE_PATH = path.join(DATA_DIR, "state.json");
+// Paths are resolved lazily so DATA_DIR is read from the running process
+// (a Fly volume mount), never inlined at build time.
 let writeQueue = Promise.resolve();
 
 async function readJson(file: string): Promise<BackofficeState> {
   return JSON.parse(await readFile(file, "utf8")) as BackofficeState;
 }
 async function writeState(state: BackofficeState) {
-  await mkdir(DATA_DIR, { recursive: true });
-  const temp = `${STATE_PATH}.tmp`;
+  await mkdir(backofficeStateDir(), { recursive: true });
+  const statePath = backofficeStatePath();
+  const temp = `${statePath}.tmp`;
   await writeFile(temp, JSON.stringify(state, null, 2), "utf8");
-  await rename(temp, STATE_PATH);
+  await rename(temp, statePath);
 }
 export async function getState() {
-  try { return await readJson(STATE_PATH); } catch {
-    const seed = await readJson(SEED_PATH);
+  try { return await readJson(backofficeStatePath()); } catch {
+    const seed = await readJson(backofficeSeedPath());
     await writeState(seed);
     return seed;
   }
@@ -50,7 +50,7 @@ export async function updateClaim(id: string, patch: Partial<Claim>) {
 export async function addClaimEvent(claimId: string, event: ClaimEvent) {
   return mutate((s) => { const claim = s.claims.find((x) => x.id === claimId); if (!claim) return undefined; claim.events.push(event); claim.updatedAt = event.timestamp; return claim; });
 }
-export async function resetState() { const seed = await readJson(SEED_PATH); await mutate((s) => { Object.assign(s, seed); return s; }); return seed; }
+export async function resetState() { const seed = await readJson(backofficeSeedPath()); await mutate((s) => { Object.assign(s, seed); return s; }); return seed; }
 export function canTransition(from: ClaimStatus, to: ClaimStatus) {
   const transitions: Record<ClaimStatus, ClaimStatus[]> = { reported: ["reviewing", "closed"], reviewing: ["approved", "closed"], approved: ["closed"], closed: [] };
   return transitions[from].includes(to);

@@ -1,43 +1,19 @@
 import { createServer } from "node:http";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { createMcpServer } from "./server";
+import { configuredMcpAuthToken } from "./auth";
+import { handleMcpHttpRequest } from "./http-handler";
 
 const port = Number(process.env.MCP_PORT ?? 4318);
+const host = process.env.MCP_HOST ?? "127.0.0.1";
 
-async function readBody(request: import("node:http").IncomingMessage) {
-  const chunks: Buffer[] = [];
-  for await (const chunk of request) chunks.push(Buffer.from(chunk));
-  const text = Buffer.concat(chunks).toString("utf8");
-  return text ? JSON.parse(text) : undefined;
+if (!configuredMcpAuthToken()) {
+  console.error("MCP_AUTH_TOKEN is required (min 24 characters). Refusing to start the MCP HTTP server.");
+  process.exit(1);
 }
 
-const httpServer = createServer(async (request, response) => {
-  if (request.url !== "/mcp") {
-    response.writeHead(404).end();
-    return;
-  }
-  if (request.method !== "POST") {
-    response.writeHead(405, { Allow: "POST" }).end();
-    return;
-  }
-  try {
-    const server = createMcpServer();
-    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
-    await server.connect(transport);
-    await transport.handleRequest(request, response, await readBody(request));
-    response.once("close", () => {
-      void transport.close();
-      void server.close();
-    });
-  } catch {
-    if (!response.headersSent) {
-      response.writeHead(400, { "content-type": "application/json" }).end(JSON.stringify({
-        jsonrpc: "2.0", error: { code: -32600, message: "Invalid MCP request." }, id: null,
-      }));
-    }
-  }
+const httpServer = createServer((request, response) => {
+  void handleMcpHttpRequest(request, response);
 });
 
-httpServer.listen(port, "127.0.0.1", () => {
-  console.error(`Acme demo MCP HTTP server listening on http://127.0.0.1:${port}/mcp`);
+httpServer.listen(port, host, () => {
+  console.error(`Acme demo MCP HTTP server listening on http://${host}:${port}/mcp`);
 });
