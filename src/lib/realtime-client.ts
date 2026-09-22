@@ -377,6 +377,10 @@ export class VoiceSession {
         this.agentStream = null;
         break;
       }
+      case "response.function_call_arguments.done": {
+        void this.handleToolCall(event);
+        break;
+      }
       case "conversation.item.created": {
         const item = event.item as Record<string, unknown> | undefined;
         const role = item?.role === "user" ? "user" : item?.role === "assistant" ? "agent" : null;
@@ -419,6 +423,40 @@ export class VoiceSession {
     };
     this.patch({ call: next });
     this.schedulePersist(next);
+  }
+
+  private async handleToolCall(event: RealtimeEvent) {
+    const callId = typeof event.call_id === "string" ? event.call_id : null;
+    const name = typeof event.name === "string" ? event.name : null;
+    if (!callId || !name || this.socket?.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    let output: unknown = { error: "The live intake tool could not be completed." };
+    try {
+      const response = await fetch("/api/realtime/tools", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, arguments: event.arguments }),
+      });
+      const payload = (await response.json()) as { output?: unknown; error?: string };
+      output = payload.output ?? { error: payload.error ?? "The live intake tool could not be completed." };
+    } catch {
+      // Keep the tool failure in the model context instead of exposing server details to callers.
+    }
+
+    if (this.socket?.readyState !== WebSocket.OPEN) return;
+    this.socket.send(
+      JSON.stringify({
+        type: "conversation.item.create",
+        item: {
+          type: "function_call_output",
+          call_id: callId,
+          output: JSON.stringify(output),
+        },
+      }),
+    );
+    this.socket.send(JSON.stringify({ type: "response.create" }));
   }
 
   private schedulePersist(call: IntakeCall) {

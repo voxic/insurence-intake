@@ -2,7 +2,7 @@
 
 Desktop demo of a **physical phone on a desk**. The intake app lives inside the phone screen. Tap **Call** to start a speech-to-speech session with Grok Voice (xAI Realtime). Eve greets the caller, gathers intent, and the transcript stays after hangup.
 
-This is an MVP: mock phone chrome, no PSTN, no CRM, no claim backend.
+This is a demo: mock phone chrome, no PSTN, no CRM, and synthetic data only.
 
 ## Screenshots
 
@@ -46,6 +46,17 @@ Mute stops sending mic audio. **Hang up** closes the socket and keeps the transc
 
 Without `XAI_API_KEY`, the phone still renders. The empty state explains that the server key is missing.
 
+## Live demo workflow
+
+The desk-phone call now has a small server-mediated bridge over the shared read-only demo MCP and backoffice store:
+
+1. Ask Eve a product or coverage question (for example, “What does Auto Core cover?”). She looks up read-only demo product data and makes clear it is not a quote or binding coverage.
+2. To report a claim, provide a demo policy number such as `ACM-A-10001`. Eve verifies its masked policy/customer details.
+3. Eve collects a non-sensitive loss date, type, description, and severity; she reads them back and requires a clear yes before creating a demo claim.
+4. Open `/backoffice/claims` to see the confirmed claim in the same JSON-backed store. The call transcript remains in the desk notepad as the handoff record.
+
+The browser has neither MCP credentials nor direct MCP access. It forwards Realtime function calls to a narrowly scoped server route; that route uses the shared read-only MCP service for product/policy lookup, validates inputs, and writes only confirmed demo claims. The tool bridge returns no unmasked contact data, and product information remains read-only.
+
 ## Settings
 
 Open **Settings** from the gear on the phone or the notepad chip, or go to `/settings`. Edit Eve’s system prompt, **Save**, or **Reset to default**. The text is stored in `localStorage` (`acme-intake-instructions`) and sent on the next Call as `session.update.session.instructions`. A live call is not rewritten mid-session.
@@ -68,6 +79,29 @@ User text comes from `conversation.item.input_audio_transcription.updated` / `.c
 **Synthetic data only.** Every record is obviously fictional: `example.com` emails, `555-01xx` phone numbers, and made-up street names. This environment stores **no sensitive data** — no government IDs, no dates of birth used as identity, no payment cards, no medical details, no passwords, and no API keys. The `/api/backoffice/*` endpoints schema-reject any create/update payload carrying such fields, and voice transcripts are never filed into the backoffice store. Use **Reset demo data** to restore the committed seed.
 
 Storage lives in `data/backoffice/seed.json` (committed) and a gitignored `state.json` (runtime), accessed only through `src/lib/backoffice/repository.ts`.
+
+## Demo MCP connector
+
+The read-only demo MCP server uses the same `data/backoffice/seed.json` / local
+backoffice state as `/backoffice`. It exposes redacted synthetic customers,
+products, price indications, and claims; it has no write tools and never
+returns call transcripts. Price results are non-binding indications, not quotes.
+
+For a local MCP Inspector or Grok Bot connector that supports stdio:
+
+```bash
+npm run mcp:stdio
+```
+
+For a Streamable HTTP connector, start the separate process and configure the
+client with `http://127.0.0.1:4318/mcp`:
+
+```bash
+npm run mcp:http
+```
+
+The HTTP demo listener is local-only and intentionally has no production
+authentication layer. Do not expose it outside a local demo environment.
 
 ## Stack
 
