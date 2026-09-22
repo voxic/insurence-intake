@@ -52,5 +52,6 @@ export async function addClaimEvent(claimId: string, event: ClaimEvent) {
 }
 export async function resetState() { const seed = await readJson(SEED_PATH); await mutate((s) => { Object.assign(s, seed); return s; }); return seed; }
 export function canTransition(from: ClaimStatus, to: ClaimStatus) {
-  return ({ reported: ["reviewing", "closed"], reviewing: ["approved", "closed"], approved: ["closed"], closed: [] } satisfies Record<ClaimStatus, ClaimStatus[]>)[from].includes(to);
+  const transitions: Record<ClaimStatus, ClaimStatus[]> = { reported: ["reviewing", "closed"], reviewing: ["approved", "closed"], approved: ["closed"], closed: [] };
+  return transitions[from].includes(to);
 }
