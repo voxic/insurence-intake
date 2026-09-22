@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 import { VoiceSession, type VoiceCallSnapshot } from "@/lib/realtime-client";
 
 let session: VoiceSession | null = null;
@@ -20,6 +20,8 @@ const idleSnapshot: VoiceCallSnapshot = {
   elapsedSeconds: 0,
   call: null,
   configured: null,
+  pushToTalk: false,
+  talking: false,
 };
 
 export function useVoiceCall() {
@@ -34,10 +36,16 @@ export function useVoiceCall() {
     void voice.checkConfigured();
   }, [voice]);
 
+  const start = useCallback(() => voice.start(), [voice]);
+  const hangup = useCallback(() => voice.hangup(), [voice]);
+  const setMuted = useCallback((muted: boolean) => voice.setMuted(muted), [voice]);
+  const setTalking = useCallback((talking: boolean) => voice.setTalking(talking), [voice]);
+
   return {
     ...snapshot,
-    start: () => voice.start(),
-    hangup: () => voice.hangup(),
-    setMuted: (muted: boolean) => voice.setMuted(muted),
+    start,
+    hangup,
+    setMuted,
+    setTalking,
   };
 }

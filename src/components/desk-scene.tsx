@@ -4,11 +4,17 @@ import { useEffect, useState } from "react";
 import { DeskNotepad } from "@/components/desk-notepad";
 import { IntakeScreen } from "@/components/intake-screen";
 import { PhoneFrame } from "@/components/phone-frame";
+import { usePushToTalk } from "@/hooks/use-push-to-talk";
 import { useVoiceCall } from "@/hooks/use-voice-call";
 
 export function DeskScene() {
   const call = useVoiceCall();
   const [now, setNow] = useState(() => new Date());
+  const pushToTalk = usePushToTalk({
+    live: call.status === "live",
+    pushToTalk: call.pushToTalk,
+    setTalking: call.setTalking,
+  });
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 30_000);
@@ -25,6 +31,7 @@ export function DeskScene() {
             onCall={() => void call.start()}
             onHangup={() => void call.hangup()}
             onMute={call.setMuted}
+            pushToTalkPointerHandlers={pushToTalk}
           />
         </PhoneFrame>
         <DeskNotepad call={call.call} />

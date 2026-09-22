@@ -7,9 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   loadInstructions,
+  loadPushToTalk,
   resetInstructions,
   saveInstructions,
+  savePushToTalk,
   subscribeInstructions,
+  subscribePushToTalk,
 } from "@/lib/agent-settings";
 import { INTAKE_INSTRUCTIONS } from "@/lib/session";
 
@@ -20,6 +23,11 @@ export function SettingsPanel() {
     () => INTAKE_INSTRUCTIONS,
   );
   const [draft, setDraft] = useState<string | null>(null);
+  const pushToTalk = useSyncExternalStore(
+    subscribePushToTalk,
+    loadPushToTalk,
+    () => false,
+  );
   const [status, setStatus] = useState<"idle" | "saved" | "reset" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const value = draft ?? saved;
@@ -82,6 +90,19 @@ export function SettingsPanel() {
           spellCheck={false}
           className="settings-editor"
         />
+        <div className="settings-ptt">
+          <input
+            id="push-to-talk"
+            type="checkbox"
+            checked={pushToTalk}
+            onChange={(event) => savePushToTalk(event.target.checked)}
+          />
+          <label htmlFor="push-to-talk">
+            <span>Push-to-talk</span>
+            Hold Space (or the mic button) to speak. Use this in noisy rooms so
+            Eve does not hear the crowd. This applies on the next Call.
+          </label>
+        </div>
         <div className="settings-toolbar">
           <Button
             type="button"
