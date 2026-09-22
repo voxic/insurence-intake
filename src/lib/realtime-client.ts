@@ -1,5 +1,5 @@
 import { base64ToPcm16, MicCapture, PcmPlayer } from "@/lib/audio";
-import { loadInstructions } from "@/lib/agent-settings";
+import { loadInstructions, loadPushToTalk } from "@/lib/agent-settings";
 import { buildSessionUpdate, REALTIME_URL } from "@/lib/session";
 import { createCall, persistCallToServer, saveCall, upsertTurn } from "@/lib/transcript";
 import type {
@@ -14,6 +14,8 @@ export type VoiceCallSnapshot = {
   status: CallStatus;
   error: string | null;
   muted: boolean;
+  pushToTalk: boolean;
+  talking: boolean;
   level: number;
   elapsedSeconds: number;
   call: IntakeCall | null;
@@ -63,10 +65,13 @@ export class VoiceSession {
   private persistTimer: number | null = null;
   private greeted = false;
   private agentStream: "audio" | "text" | null = null;
+  private appendedChunks = 0;
   private snapshot: VoiceCallSnapshot = {
     status: "idle",
     error: null,
     muted: false,
+    pushToTalk: false,
+    talking: false,
     level: 0,
     elapsedSeconds: 0,
     call: null,
@@ -105,10 +110,14 @@ export class VoiceSession {
     this.agentPartialId = null;
     this.greeted = false;
     this.agentStream = null;
+    this.appendedChunks = 0;
+    const pushToTalk = loadPushToTalk();
     this.patch({
       status: "requesting-mic",
       error: null,
-      muted: false,
+      muted: pushToTalk,
+      pushToTalk,
+      talking: false,
       level: 0,
       elapsedSeconds: 0,
       call,
@@ -120,18 +129,25 @@ export class VoiceSession {
 
       this.mic = new MicCapture({
         onChunk: (audio) => {
-          if (this.socket?.readyState === WebSocket.OPEN) {
+          if (
+            this.socket?.readyState === WebSocket.OPEN &&
+            (!this.snapshot.pushToTalk || this.snapshot.talking)
+          ) {
             this.socket.send(
               JSON.stringify({
                 type: "input_audio_buffer.append",
                 audio,
               }),
             );
+            if (this.snapshot.pushToTalk) {
+              this.appendedChunks += 1;
+            }
           }
         },
         onLevel: (level) => this.patch({ level }),
       });
       await this.mic.start();
+      this.mic.setMuted(pushToTalk);
 
       this.patch({ status: "connecting" });
 
@@ -165,7 +181,9 @@ export class VoiceSession {
         };
       });
 
-      this.socket?.send(JSON.stringify(buildSessionUpdate(loadInstructions())));
+      this.socket?.send(
+        JSON.stringify(buildSessionUpdate(loadInstructions(), { pushToTalk })),
+      );
       this.startedAt = Date.now();
       this.patch({ status: "live", call: { ...call, status: "live" } });
       this.startTimer();
@@ -188,8 +206,38 @@ export class VoiceSession {
   }
 
   setMuted(muted: boolean) {
+    if (this.snapshot.pushToTalk) {
+      return;
+    }
     this.mic?.setMuted(muted);
     this.patch({ muted, level: muted ? 0 : this.snapshot.level });
+  }
+
+  setTalking(talking: boolean) {
+    if (!this.snapshot.pushToTalk || this.snapshot.status !== "live") {
+      return;
+    }
+    if (talking === this.snapshot.talking) {
+      return;
+    }
+
+    if (talking) {
+      this.appendedChunks = 0;
+      this.player?.interrupt();
+      this.socket?.send(JSON.stringify({ type: "response.cancel" }));
+      this.socket?.send(JSON.stringify({ type: "input_audio_buffer.clear" }));
+      this.mic?.setMuted(false);
+      this.patch({ talking: true, muted: false });
+      return;
+    }
+
+    this.mic?.setMuted(true);
+    this.patch({ talking: false, muted: true, level: 0 });
+    if (this.appendedChunks > 0 && this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
+      this.socket.send(JSON.stringify({ type: "response.create" }));
+    }
+    this.appendedChunks = 0;
   }
 
   async hangup() {
@@ -212,6 +260,7 @@ export class VoiceSession {
       status: error ? "error" : "ended",
       error: error ?? null,
       muted: false,
+      talking: false,
       level: 0,
       call,
     });
@@ -247,6 +296,7 @@ export class VoiceSession {
       }
     }
     this.socket = null;
+    this.appendedChunks = 0;
     this.player?.interrupt();
     await this.player?.close();
     this.player = null;

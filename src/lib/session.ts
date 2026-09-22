@@ -21,18 +21,23 @@ Intake
 Start
 When the call connects, greet them first. Do not wait for them to speak.`;
 
-export function buildSessionUpdate(instructions = INTAKE_INSTRUCTIONS) {
+export function buildSessionUpdate(
+  instructions = INTAKE_INSTRUCTIONS,
+  options: { pushToTalk?: boolean } = {},
+) {
   return {
     type: "session.update",
     session: {
       voice: AGENT_VOICE,
       instructions,
-      turn_detection: {
-        type: "server_vad",
-        threshold: 0.5,
-        prefix_padding_ms: 300,
-        silence_duration_ms: 600,
-      },
+      turn_detection: options.pushToTalk
+        ? null
+        : {
+            type: "server_vad",
+            threshold: 0.5,
+            prefix_padding_ms: 300,
+            silence_duration_ms: 600,
+          },
       audio: {
         input: {
           format: { type: "audio/pcm", rate: TARGET_SAMPLE_RATE },
