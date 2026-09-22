@@ -1,0 +1,43 @@
+{
+  "customers": [
+    {"id":"cus_ada","name":"Ada Hart","email":"ada.hart@example.test","phone":"555-0101","address":"14 Fictional Lane, Testville","dateOfBirth":"1988-04-12","status":"active","createdAt":"2026-01-04T09:00:00.000Z","updatedAt":"2026-01-04T09:00:00.000Z"},
+    {"id":"cus_ben","name":"Ben Ortiz","email":"ben.ortiz@example.test","phone":"555-0102","address":"28 Demo Street, Testville","dateOfBirth":"1979-09-20","status":"active","createdAt":"2026-01-08T09:00:00.000Z","updatedAt":"2026-01-08T09:00:00.000Z"},
+    {"id":"cus_cora","name":"Cora Wells","email":"cora.wells@example.test","phone":"555-0103","address":"7 Sample Court, Testville","dateOfBirth":"1992-02-02","status":"prospect","createdAt":"2026-02-01T09:00:00.000Z","updatedAt":"2026-02-01T09:00:00.000Z"},
+    {"id":"cus_drew","name":"Drew Kim","email":"drew.kim@example.test","phone":"555-0104","address":"44 Placeholder Way, Testville","dateOfBirth":"1984-11-11","status":"active","createdAt":"2026-02-15T09:00:00.000Z","updatedAt":"2026-02-15T09:00:00.000Z"},
+    {"id":"cus_erin","name":"Erin Shaw","email":"erin.shaw@example.test","phone":"555-0105","address":"91 Imaginary Road, Testville","dateOfBirth":"1990-06-18","status":"inactive","createdAt":"2025-12-06T09:00:00.000Z","updatedAt":"2026-01-12T09:00:00.000Z"},
+    {"id":"cus_finn","name":"Finn Reed","email":"finn.reed@example.test","phone":"555-0106","address":"3 Mockingbird Drive, Testville","dateOfBirth":"1974-07-30","status":"active","createdAt":"2026-03-01T09:00:00.000Z","updatedAt":"2026-03-01T09:00:00.000Z"},
+    {"id":"cus_gia","name":"Gia Moss","email":"gia.moss@example.test","phone":"555-0107","address":"62 Practice Place, Testville","dateOfBirth":"1986-12-05","status":"active","createdAt":"2026-03-04T09:00:00.000Z","updatedAt":"2026-03-04T09:00:00.000Z"},
+    {"id":"cus_hugo","name":"Hugo Lane","email":"hugo.lane@example.test","phone":"555-0108","address":"11 Sandbox Avenue, Testville","dateOfBirth":"1995-08-22","status":"prospect","createdAt":"2026-03-08T09:00:00.000Z","updatedAt":"2026-03-08T09:00:00.000Z"},
+    {"id":"cus_ivy","name":"Ivy Park","email":"ivy.park@example.test","phone":"555-0109","address":"80 Prototype Row, Testville","dateOfBirth":"1981-03-17","status":"active","createdAt":"2026-03-10T09:00:00.000Z","updatedAt":"2026-03-10T09:00:00.000Z"},
+    {"id":"cus_jules","name":"Jules Bell","email":"jules.bell@example.test","phone":"555-0110","address":"9 Example Terrace, Testville","dateOfBirth":"1989-01-26","status":"active","createdAt":"2026-03-13T09:00:00.000Z","updatedAt":"2026-03-13T09:00:00.000Z"},
+    {"id":"cus_kai","name":"Kai North","email":"kai.north@example.test","phone":"555-0111","address":"17 Pretend Boulevard, Testville","dateOfBirth":"1977-05-09","status":"inactive","createdAt":"2026-03-15T09:00:00.000Z","updatedAt":"2026-03-15T09:00:00.000Z"},
+    {"id":"cus_lena","name":"Lena Frost","email":"lena.frost@example.test","phone":"555-0112","address":"35 Training Trail, Testville","dateOfBirth":"1993-10-14","status":"active","createdAt":"2026-03-18T09:00:00.000Z","updatedAt":"2026-03-18T09:00:00.000Z"}
+  ],
+  "products": [
+    {"id":"prd_auto","code":"AUTO-CORE","name":"Auto Core","line":"auto","description":"Everyday auto protection for demo drivers.","coverages":["Liability","Collision","Comprehensive"],"deductibles":[250,500,1000],"active":true},
+    {"id":"prd_home","code":"HOME-PLUS","name":"Home Plus","line":"home","description":"Homeowners coverage for fictional residences.","coverages":["Dwelling","Personal property","Liability"],"deductibles":[500,1000,2500],"active":true},
+    {"id":"prd_rent","code":"RENT-EASY","name":"Rent Easy","line":"renters","description":"Simple renters coverage.","coverages":["Personal property","Liability","Loss of use"],"deductibles":[250,500,1000],"active":true},
+    {"id":"prd_pet","code":"PET-CARE","name":"Pet Care","line":"pet","description":"Archived demo pet plan.","coverages":["Accident","Illness"],"deductibles":[100,250,500],"active":false}
+  ],
+  "pricingRules": [
+    {"id":"prc_auto_v3","productId":"prd_auto","version":3,"active":true,"effectiveDate":"2026-01-01","basePremium":1200,"minPremium":780,"maxPremium":2400,"factors":{"standard":1,"preferred":0.85,"highRisk":1.3}},
+    {"id":"prc_home_v2","productId":"prd_home","version":2,"active":true,"effectiveDate":"2026-01-01","basePremium":980,"minPremium":650,"maxPremium":2100,"factors":{"standard":1,"preferred":0.9,"highRisk":1.25}},
+    {"id":"prc_rent_v1","productId":"prd_rent","version":1,"active":true,"effectiveDate":"2026-01-01","basePremium":240,"minPremium":180,"maxPremium":520,"factors":{"standard":1,"preferred":0.9,"highRisk":1.2}},
+    {"id":"prc_pet_v1","productId":"prd_pet","version":1,"active":false,"effectiveDate":"2025-01-01","basePremium":420,"minPremium":300,"maxPremium":850,"factors":{"standard":1}}
+  ],
+  "policies": [
+    {"id":"pol_ada","customerId":"cus_ada","productId":"prd_auto","number":"ACM-A-10001","status":"active","effectiveDate":"2026-01-01","expirationDate":"2026-12-31","coverage":"Comprehensive","deductible":500,"premium":1200,"priceVersion":3},
+    {"id":"pol_ben","customerId":"cus_ben","productId":"prd_home","number":"ACM-H-10002","status":"active","effectiveDate":"2026-02-01","expirationDate":"2027-01-31","coverage":"Dwelling","deductible":1000,"premium":882,"priceVersion":2},
+    {"id":"pol_drew","customerId":"cus_drew","productId":"prd_rent","number":"ACM-R-10003","status":"active","effectiveDate":"2026-03-01","expirationDate":"2027-02-28","coverage":"Personal property","deductible":250,"premium":240,"priceVersion":1},
+    {"id":"pol_finn","customerId":"cus_finn","productId":"prd_auto","number":"ACM-A-10004","status":"active","effectiveDate":"2026-01-15","expirationDate":"2027-01-14","coverage":"Collision","deductible":1000,"premium":1560,"priceVersion":3},
+    {"id":"pol_gia","customerId":"cus_gia","productId":"prd_home","number":"ACM-H-10005","status":"active","effectiveDate":"2026-03-01","expirationDate":"2027-02-28","coverage":"Personal property","deductible":500,"premium":980,"priceVersion":2},
+    {"id":"pol_ivy","customerId":"cus_ivy","productId":"prd_auto","number":"ACM-A-10006","status":"expired","effectiveDate":"2025-03-01","expirationDate":"2026-02-28","coverage":"Liability","deductible":500,"premium":1020,"priceVersion":3},
+    {"id":"pol_jules","customerId":"cus_jules","productId":"prd_rent","number":"ACM-R-10007","status":"active","effectiveDate":"2026-03-14","expirationDate":"2027-03-13","coverage":"Liability","deductible":500,"premium":216,"priceVersion":1}
+  ],
+  "claims": [
+    {"id":"clm_ada","number":"CLM-26001","customerId":"cus_ada","policyId":"pol_ada","lossDate":"2026-03-15","reportedDate":"2026-03-16","type":"Windshield damage","description":"Fictional chipped windshield report.","severity":"low","status":"reviewing","owner":"M. Vega","reserve":450,"paidAmount":0,"createdAt":"2026-03-16T10:00:00.000Z","updatedAt":"2026-03-16T10:00:00.000Z","events":[{"id":"evt_1","timestamp":"2026-03-16T10:00:00.000Z","actor":"M. Vega","type":"note","note":"Demo claim received."}]},
+    {"id":"clm_ben","number":"CLM-26002","customerId":"cus_ben","policyId":"pol_ben","lossDate":"2026-03-11","reportedDate":"2026-03-12","type":"Water damage","description":"Fictional kitchen leak report.","severity":"high","status":"reported","owner":"Unassigned","reserve":8200,"paidAmount":0,"createdAt":"2026-03-12T09:00:00.000Z","updatedAt":"2026-03-12T09:00:00.000Z","events":[]},
+    {"id":"clm_drew","number":"CLM-26003","customerId":"cus_drew","policyId":"pol_drew","lossDate":"2026-02-20","reportedDate":"2026-02-21","type":"Theft","description":"Fictional bicycle theft report.","severity":"medium","status":"approved","owner":"R. Singh","reserve":1400,"paidAmount":900,"createdAt":"2026-02-21T11:00:00.000Z","updatedAt":"2026-02-25T11:00:00.000Z","events":[]},
+    {"id":"clm_finn","number":"CLM-26004","customerId":"cus_finn","policyId":"pol_finn","lossDate":"2026-01-19","reportedDate":"2026-01-20","type":"Collision","description":"Fictional parking-lot collision.","severity":"medium","status":"closed","owner":"M. Vega","reserve":3500,"paidAmount":3100,"createdAt":"2026-01-20T10:00:00.000Z","updatedAt":"2026-02-02T10:00:00.000Z","events":[]}
+  ]
+}

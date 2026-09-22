@@ -1,0 +1,14 @@
+import { z } from "zod";
+export const idSchema = z.string().regex(/^(cus|prd|pol|prc|clm)_[a-z0-9_-]+$/);
+const customerStatus = z.enum(["active", "prospect", "inactive"]);
+const claimStatus = z.enum(["reported", "reviewing", "approved", "closed"]);
+export const customerCreateSchema = z.object({ name: z.string().min(2).max(80), email: z.email(), phone: z.string().min(7).max(24), address: z.string().min(4).max(140), dateOfBirth: z.iso.date(), status: customerStatus.default("prospect") });
+export const customerPatchSchema = customerCreateSchema.partial();
+export const productCreateSchema = z.object({ code: z.string().min(3).max(24), name: z.string().min(2).max(80), line: z.enum(["auto", "home", "renters", "pet"]), description: z.string().min(4).max(240), coverages: z.array(z.string().min(2)).min(1), deductibles: z.array(z.number().int().positive()).min(1), active: z.boolean().default(true) });
+export const productPatchSchema = productCreateSchema.partial();
+export const policyCreateSchema = z.object({ customerId: idSchema, productId: idSchema, number: z.string().min(4).max(32), status: z.enum(["active", "expired", "cancelled"]).default("active"), effectiveDate: z.iso.date(), expirationDate: z.iso.date(), coverage: z.string().min(2), deductible: z.number().nonnegative(), premium: z.number().positive(), priceVersion: z.number().int().positive() });
+export const pricingRuleSchema = z.object({ productId: idSchema, version: z.number().int().positive(), active: z.boolean(), effectiveDate: z.iso.date(), basePremium: z.number().positive(), minPremium: z.number().positive(), maxPremium: z.number().positive(), factors: z.record(z.string(), z.number().positive()) }).refine((x) => x.maxPremium >= x.minPremium, { message: "Maximum must be at least minimum." });
+export const claimCreateSchema = z.object({ customerId: idSchema, policyId: idSchema, lossDate: z.iso.date(), type: z.string().min(2).max(80), description: z.string().min(4).max(500), severity: z.enum(["low", "medium", "high"]), owner: z.string().min(2).max(80), reserve: z.number().nonnegative() });
+export const claimPatchSchema = z.object({ status: claimStatus.optional(), owner: z.string().min(2).max(80).optional(), reserve: z.number().nonnegative().optional(), paidAmount: z.number().nonnegative().optional() });
+export const claimEventSchema = z.object({ note: z.string().min(1).max(500), status: claimStatus.optional() });
+export const quoteSchema = z.object({ customerId: idSchema, productId: idSchema, factor: z.string().min(1).max(40).default("standard") });
