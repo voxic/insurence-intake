@@ -1,6 +1,7 @@
 import { base64ToPcm16, MicCapture, PcmPlayer } from "@/lib/audio";
 import { loadInstructions, loadPushToTalk } from "@/lib/agent-settings";
 import { buildSessionUpdate, REALTIME_URL } from "@/lib/session";
+import { RealtimeToolTurn } from "@/lib/realtime-tool-turn";
 import { createCall, persistCallToServer, saveCall, upsertTurn } from "@/lib/transcript";
 import type {
   CallStatus,
@@ -66,6 +67,7 @@ export class VoiceSession {
   private greeted = false;
   private agentStream: "audio" | "text" | null = null;
   private appendedChunks = 0;
+  private toolTurn: RealtimeToolTurn | null = null;
   private snapshot: VoiceCallSnapshot = {
     status: "idle",
     error: null,
@@ -111,6 +113,19 @@ export class VoiceSession {
     this.greeted = false;
     this.agentStream = null;
     this.appendedChunks = 0;
+    this.toolTurn = new RealtimeToolTurn({
+      run: (callId, name, argumentsJson) => this.runToolCall(callId, name, argumentsJson),
+      sendOutput: ({ callId, output }) => {
+        this.socket?.send(
+          JSON.stringify({
+            type: "conversation.item.create",
+            item: { type: "function_call_output", call_id: callId, output: JSON.stringify(output) },
+          }),
+        );
+      },
+      continueResponse: () => this.socket?.send(JSON.stringify({ type: "response.create" })),
+      waitForPlayback: () => this.player?.drain() ?? Promise.resolve(),
+    });
     const pushToTalk = loadPushToTalk();
     this.patch({
       status: "requesting-mic",
@@ -224,6 +239,7 @@ export class VoiceSession {
     if (talking) {
       this.appendedChunks = 0;
       this.player?.interrupt();
+      this.toolTurn?.interrupt();
       this.socket?.send(JSON.stringify({ type: "response.cancel" }));
       this.socket?.send(JSON.stringify({ type: "input_audio_buffer.clear" }));
       this.mic?.setMuted(false);
@@ -296,6 +312,7 @@ export class VoiceSession {
       }
     }
     this.socket = null;
+    this.toolTurn = null;
     this.appendedChunks = 0;
     this.player?.interrupt();
     await this.player?.close();
@@ -324,6 +341,7 @@ export class VoiceSession {
         break;
       case "input_audio_buffer.speech_started":
         this.player?.interrupt();
+        this.toolTurn?.interrupt();
         this.socket?.send(JSON.stringify({ type: "response.cancel" }));
         this.userPartialId = crypto.randomUUID();
         break;
@@ -378,11 +396,22 @@ export class VoiceSession {
         break;
       }
       case "response.function_call_arguments.done": {
-        void this.handleToolCall(event);
+        this.toolTurn?.handle(
+          typeof event.call_id === "string" ? event.call_id : null,
+          typeof event.name === "string" ? event.name : null,
+          event.arguments,
+        );
+        break;
+      }
+      case "response.done": {
+        this.toolTurn?.markResponseDone();
         break;
       }
       case "conversation.item.created": {
         const item = event.item as Record<string, unknown> | undefined;
+        if (item?.type && item.type !== "message") {
+          break;
+        }
         const role = item?.role === "user" ? "user" : item?.role === "assistant" ? "agent" : null;
         const text = readTranscript(event);
         const already =
@@ -425,38 +454,23 @@ export class VoiceSession {
     this.schedulePersist(next);
   }
 
-  private async handleToolCall(event: RealtimeEvent) {
-    const callId = typeof event.call_id === "string" ? event.call_id : null;
-    const name = typeof event.name === "string" ? event.name : null;
-    if (!callId || !name || this.socket?.readyState !== WebSocket.OPEN) {
-      return;
+  private async runToolCall(_callId: string, name: string | null, argumentsJson: unknown) {
+    if (!name || this.socket?.readyState !== WebSocket.OPEN) {
+      return { error: "The live intake tool request was incomplete." };
     }
-
     let output: unknown = { error: "The live intake tool could not be completed." };
     try {
       const response = await fetch("/api/realtime/tools", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, arguments: event.arguments }),
+        body: JSON.stringify({ name, arguments: argumentsJson }),
       });
       const payload = (await response.json()) as { output?: unknown; error?: string };
       output = payload.output ?? { error: payload.error ?? "The live intake tool could not be completed." };
     } catch {
       // Keep the tool failure in the model context instead of exposing server details to callers.
     }
-
-    if (this.socket?.readyState !== WebSocket.OPEN) return;
-    this.socket.send(
-      JSON.stringify({
-        type: "conversation.item.create",
-        item: {
-          type: "function_call_output",
-          call_id: callId,
-          output: JSON.stringify(output),
-        },
-      }),
-    );
-    this.socket.send(JSON.stringify({ type: "response.create" }));
+    return output;
   }
 
   private schedulePersist(call: IntakeCall) {

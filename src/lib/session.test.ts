@@ -9,10 +9,9 @@ describe("Realtime session configuration", () => {
     expect(session.session.tools.map((tool) => tool.name)).toEqual([
       "lookup_demo_product",
       "verify_demo_policy",
+      "confirm_demo_claim",
       "create_confirmed_demo_claim",
     ]);
-    expect(session.session.tools[2]?.parameters.properties.confirmed).toMatchObject({
-      enum: [true],
-    });
+    expect(session.session.tools[3]?.parameters.properties.confirmation_id).toBeDefined();
   });
 });

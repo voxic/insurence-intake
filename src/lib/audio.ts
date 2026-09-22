@@ -115,6 +115,13 @@ export class PcmPlayer {
     this.nextTime = this.context.currentTime;
   }
 
+  async drain() {
+    const remaining = Math.max(0, this.nextTime - this.context.currentTime);
+    if (remaining > 0) {
+      await new Promise<void>((resolve) => window.setTimeout(resolve, Math.ceil(remaining * 1000)));
+    }
+  }
+
   async close() {
     this.interrupt();
     await this.context.close().catch(() => undefined);

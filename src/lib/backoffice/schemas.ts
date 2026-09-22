@@ -30,6 +30,15 @@ export const FORBIDDEN_FIELDS = [
   "secret",
 ] as const;
 
+export function containsSensitiveClaimContent(value: string) {
+  const digits = value.replace(/\D/g, "");
+  return (
+    /\b\d{3}-?\d{2}-?\d{4}\b/.test(value) ||
+    (digits.length >= 13 && digits.length <= 19) ||
+    /\b(diagnosis|medical history|health record|credit card|bank account)\b/i.test(value)
+  );
+}
+
 function forbidSensitiveKeys<T extends z.ZodType>(schema: T): T {
   return schema.superRefine((value, ctx) => {
     if (!value || typeof value !== "object") return;
@@ -119,7 +128,16 @@ export const claimCreateSchema = forbidSensitiveKeys(
       owner: z.string().min(2).max(80),
       reserve: z.number().nonnegative(),
     })
-    .strict(),
+    .strict()
+    .superRefine((value, ctx) => {
+      if (containsSensitiveClaimContent(value.description)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["description"],
+          message: "Claim descriptions cannot contain sensitive data in this synthetic-only demo.",
+        });
+      }
+    }),
 );
 export const claimPatchSchema = z
   .object({

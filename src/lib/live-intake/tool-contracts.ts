@@ -25,9 +25,9 @@ export const REALTIME_TOOLS = [
   },
   {
     type: "function",
-    name: "create_confirmed_demo_claim",
+    name: "confirm_demo_claim",
     description:
-      "Create a claim only after verifying the policy, summarizing the claim details, and getting an explicit caller confirmation. Set confirmed to true only after the caller says yes.",
+      "Record the caller's explicit yes only after verifying the policy and reading back the complete claim summary. This does not create a claim.",
     parameters: {
       type: "object",
       properties: {
@@ -36,13 +36,27 @@ export const REALTIME_TOOLS = [
         claim_type: { type: "string" },
         description: { type: "string", description: "Brief non-sensitive loss description." },
         severity: { type: "string", enum: ["low", "medium", "high"] },
-        confirmed: {
-          type: "boolean",
-          enum: [true],
-          description: "Must be true only after explicit caller confirmation.",
-        },
       },
-      required: ["policy_number", "loss_date", "claim_type", "description", "severity", "confirmed"],
+      required: ["policy_number", "loss_date", "claim_type", "description", "severity"],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
+    name: "create_confirmed_demo_claim",
+    description:
+      "Create the claim only with the confirmation_id returned by confirm_demo_claim in this live call.",
+    parameters: {
+      type: "object",
+      properties: {
+        policy_number: { type: "string" },
+        loss_date: { type: "string", description: "Loss date in YYYY-MM-DD format." },
+        claim_type: { type: "string" },
+        description: { type: "string", description: "Brief non-sensitive loss description." },
+        severity: { type: "string", enum: ["low", "medium", "high"] },
+        confirmation_id: { type: "string", description: "Server-issued confirmation for these exact details." },
+      },
+      required: ["policy_number", "loss_date", "claim_type", "description", "severity", "confirmation_id"],
       additionalProperties: false,
     },
   },

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createLiveIntakeCall } from "@/lib/live-intake/call-state";
 
 const CLIENT_SECRETS_URL = "https://api.x.ai/v1/realtime/client_secrets";
 
@@ -87,5 +88,15 @@ export async function POST() {
     );
   }
 
-  return NextResponse.json(token);
+  const result = NextResponse.json(token);
+  result.cookies.set({
+    name: "acme_live_call",
+    value: createLiveIntakeCall(),
+    httpOnly: true,
+    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 300,
+  });
+  return result;
 }

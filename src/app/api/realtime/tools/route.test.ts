@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { getState, resetState } from "@/lib/backoffice/repository";
 import { POST } from "./route";
+
+afterEach(async () => {
+  await resetState();
+});
 
 describe("live intake tool gateway", () => {
   it("runs only validated adapter calls", async () => {
@@ -12,8 +17,33 @@ describe("live intake tool gateway", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
-      output: { found: true, policy: { policy_number: "ACM-A-10001" } },
+      output: { found: true, policy: { policy_number: "••••0001" } },
     });
+  });
+
+  it("cannot create a claim from a browser request that supplies confirmed: true", async () => {
+    const before = (await getState()).claims.length;
+    const response = await POST(
+      new Request("http://localhost/api/realtime/tools", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "create_confirmed_demo_claim",
+          arguments: {
+            policy_number: "ACM-A-10001",
+            loss_date: "2026-09-20",
+            claim_type: "Windshield damage",
+            description: "A fictional chipped windshield.",
+            severity: "low",
+            confirmed: true,
+          },
+        }),
+      }),
+    );
+
+    await expect(response.json()).resolves.toMatchObject({
+      output: { created: false, error: expect.stringContaining("confirmation") },
+    });
+    expect((await getState()).claims).toHaveLength(before);
   });
 
   it("rejects malformed gateway requests", async () => {
