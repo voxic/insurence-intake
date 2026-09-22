@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { configuredDemoPassword, hasDemoSession } from "@/lib/demo-password";
 import { createLiveIntakeCall } from "@/lib/live-intake/call-state";
 import {
   clientKeyFrom,
@@ -43,6 +44,7 @@ export async function GET() {
   return NextResponse.json({
     configured: Boolean(process.env.XAI_API_KEY),
     accessTokenRequired: Boolean(configuredSessionAccessToken()),
+    demoPasswordRequired: Boolean(configuredDemoPassword()),
   });
 }
 
@@ -51,7 +53,9 @@ export async function POST(request: Request) {
     authorization: request.headers.get("authorization"),
     sessionAccessToken: request.headers.get("x-session-access-token"),
   });
-  if (!isAuthorizedSessionRequest(credential)) {
+  const authorized =
+    isAuthorizedSessionRequest(credential) || hasDemoSession(request.headers.get("cookie"));
+  if (!authorized) {
     return NextResponse.json(
       { error: "A valid session access token is required to mint a Realtime token." },
       { status: 401, headers: { "WWW-Authenticate": 'Bearer realm="session"' } },

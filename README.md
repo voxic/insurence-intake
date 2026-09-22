@@ -32,9 +32,10 @@ Open [http://127.0.0.1:4317](http://127.0.0.1:4317). The key must stay on the se
 | `XAI_API_KEY` | `.env.local` / Fly secrets only | Used by `POST /api/session` to mint an ephemeral client secret from `https://api.x.ai/v1/realtime/client_secrets`. Never sent to the browser, MCP responses, logs, or git. |
 | `MCP_AUTH_TOKEN` | `.env.local` / Fly secrets only | Server-held bearer for Streamable HTTP MCP (`Authorization: Bearer …`). Min 24 characters. Required for `npm run mcp:http` and `npm run start:public`. |
 | `SESSION_ACCESS_TOKEN` | `.env.local` / Fly secrets only | Shared secret required by `POST /api/session` on the public host. Min 16 characters. **Required** by `npm run start:public` — it refuses to boot without it, so the public URL never mints Realtime tokens (and thus never spends `XAI_API_KEY`) for anonymous callers. Unset locally = open. |
+| `DEMO_PASSWORD` | `.env.local` / Fly secrets only | Shared password for the public desk-phone UI. Min 8 characters. `POST /api/demo-login` validates it server-side and sets an HTTP-only, `SameSite=Strict` cookie scoped to `/api/session`; required by `npm run start:public`. Unset local dev stays open. |
 | `DATA_DIR` | Fly volume | Persistent JSON/transcript root, read at runtime by both Next and MCP. Defaults to `./data`. Set to `/data` on Fly. |
 
-Do **not** prefix these with `NEXT_PUBLIC_`. The browser never receives the long-lived xAI key, the MCP bearer, or the session access token.
+Do **not** prefix these with `NEXT_PUBLIC_`. The browser never receives the long-lived xAI key, the MCP bearer, the session access token, or the demo password.
 
 Optional: `SESSION_RATE_LIMIT` (default `10`) and `SESSION_RATE_WINDOW_MS` (default `60000`) add a lightweight per-client rate limit on `POST /api/session`; set `SESSION_RATE_LIMIT=0` to disable. Single instance only.
 
@@ -140,9 +141,9 @@ JSON backoffice state and transcripts need one process and a disk. This repo is 
 
 `Dockerfile` + `fly.toml` run Next (desk phone + backoffice) and MCP behind one public port:
 
-- `https://<app>.fly.dev/` — Next app (backoffice/desk-phone; synthetic data, public-ok)
+- `https://<app>.fly.dev/` — Next app (synthetic data, public-ok; desk-phone calls require demo-password login)
 - `https://<app>.fly.dev/mcp` — Streamable HTTP MCP (`MCP_AUTH_TOKEN` bearer required)
-- `https://<app>.fly.dev/api/session` — Realtime token mint (`SESSION_ACCESS_TOKEN` required)
+- `https://<app>.fly.dev/api/session` — Realtime token mint (`SESSION_ACCESS_TOKEN` or a valid demo-login cookie required)
 - `https://<app>.fly.dev/healthz` — **liveness only**: returns `ok` when the public proxy is up. It does not check upstream readiness and returns no secrets. Use it only as a Fly health check, not as a data or auth signal.
 
 ### Required Fly secrets
@@ -154,6 +155,7 @@ Set these with `fly secrets set` (never in `fly.toml [env]`, never in git):
 | `XAI_API_KEY` | Realtime token mint. Stays server-side only. |
 | `MCP_AUTH_TOKEN` | Bearer for `/mcp` (min 24 chars). |
 | `SESSION_ACCESS_TOKEN` | Required gate for `POST /api/session` (min 16 chars). Without it the public process refuses to boot. |
+| `DEMO_PASSWORD` | Password for the public desk-phone login (min 8 chars). Without it the public process refuses to boot. |
 
 ```bash
 fly launch --copy-config --no-deploy
@@ -161,7 +163,8 @@ fly volumes create acme_intake_data --region sjc --size 1 --yes
 fly secrets set \
   XAI_API_KEY="..." \
   MCP_AUTH_TOKEN="$(openssl rand -hex 24)" \
-  SESSION_ACCESS_TOKEN="$(openssl rand -hex 16)"
+  SESSION_ACCESS_TOKEN="$(openssl rand -hex 16)" \
+  DEMO_PASSWORD="$(openssl rand -base64 18)"
 fly deploy --ha=false
 fly scale count 1
 ```
@@ -170,25 +173,28 @@ Keep **exactly one** machine. `fly.toml` already sets `min_machines_running = 1`
 
 ### Starting a call on the public host
 
-`POST /api/session` requires the session token:
+Open `https://<app>.fly.dev/`, enter `DEMO_PASSWORD`, then tap **Call**. The login route exchanges the password for a signed, HTTP-only cookie that is sent only to `/api/session`; the browser never sees `SESSION_ACCESS_TOKEN`, `XAI_API_KEY`, or `MCP_AUTH_TOKEN`.
+
+For an operator/API request, `POST /api/session` still accepts the session token:
 
 ```bash
 curl -X POST https://<app>.fly.dev/api/session \
   -H "Authorization: Bearer $SESSION_ACCESS_TOKEN"
 ```
 
-Missing or wrong token → `401`. The token is **not** shipped to the browser, so the in-browser desk-phone demo is intended for local use (where the gate is unset) or for an operator who supplies the token. MCP and the synthetic backoffice are the public surfaces.
+Missing or wrong bearer and no valid demo-login cookie → `401`. Local `npm run dev` remains ungated when `SESSION_ACCESS_TOKEN` is unset. MCP bearer authentication is unchanged.
 
-Local equivalent of the public process (requires both `MCP_AUTH_TOKEN` and `SESSION_ACCESS_TOKEN`):
+Local equivalent of the public process (requires `MCP_AUTH_TOKEN`, `SESSION_ACCESS_TOKEN`, and `DEMO_PASSWORD`):
 
 ```bash
 npm run build
 MCP_AUTH_TOKEN="$(openssl rand -hex 24)" \
 SESSION_ACCESS_TOKEN="$(openssl rand -hex 16)" \
+DEMO_PASSWORD="demo-password" \
 PORT=8080 DATA_DIR=./data npm run start:public
 ```
 
-Then MCP is `http://127.0.0.1:8080/mcp` with the bearer header, and `/api/session` needs the session token.
+Then MCP is `http://127.0.0.1:8080/mcp` with the bearer header. Open `http://127.0.0.1:8080/` and sign in with `DEMO_PASSWORD` to call.
 
 ## Stack
 

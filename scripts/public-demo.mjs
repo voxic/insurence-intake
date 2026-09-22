@@ -19,6 +19,12 @@ if ((process.env.SESSION_ACCESS_TOKEN ?? "").length < MIN_SESSION_TOKEN_LENGTH) 
   process.exit(1);
 }
 
+const MIN_DEMO_PASSWORD_LENGTH = 8;
+if ((process.env.DEMO_PASSWORD ?? "").length < MIN_DEMO_PASSWORD_LENGTH) {
+  console.error("DEMO_PASSWORD must be set (min 8 characters) for public start. Refusing to start the public demo.");
+  process.exit(1);
+}
+
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const bin = (name) => path.join(root, "node_modules", ".bin", name);
 const publicPort = Number(process.env.PORT ?? 8080);
