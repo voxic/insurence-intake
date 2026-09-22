@@ -61,6 +61,14 @@ Each turn is a structured `{ speaker, text, status, timestamps }` item.
 
 User text comes from `conversation.item.input_audio_transcription.updated` / `.completed`. Agent text comes from `response.output_audio_transcript.*` (and text-delta aliases).
 
+## Backoffice (demo)
+
+`/backoffice` is a local operations demo (dashboard, customers, products, pricing, claims) backed by a JSON repository, not a real CRM or claims system.
+
+**Synthetic data only.** Every record is obviously fictional: `example.com` emails, `555-01xx` phone numbers, and made-up street names. This environment stores **no sensitive data** — no government IDs, no dates of birth used as identity, no payment cards, no medical details, no passwords, and no API keys. The `/api/backoffice/*` endpoints schema-reject any create/update payload carrying such fields, and voice transcripts are never filed into the backoffice store. Use **Reset demo data** to restore the committed seed.
+
+Storage lives in `data/backoffice/seed.json` (committed) and a gitignored `state.json` (runtime), accessed only through `src/lib/backoffice/repository.ts`.
+
 ## Stack
 
 Next.js (App Router) + TypeScript + Tailwind + shadcn/ui primitives. Voice auth follows [xAI ephemeral tokens](https://docs.x.ai/developers/model-capabilities/audio/ephemeral-tokens). Session events follow the [Speech to Speech](https://docs.x.ai/developers/model-capabilities/audio/speech-to-speech) WebSocket.

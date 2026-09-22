@@ -6,7 +6,7 @@ export type ClaimSeverity = "low" | "medium" | "high";
 
 export type Customer = {
   id: string; name: string; email: string; phone: string; address: string;
-  dateOfBirth: string; status: CustomerStatus; createdAt: string; updatedAt: string;
+  status: CustomerStatus; createdAt: string; updatedAt: string;
 };
 export type Product = {
   id: string; code: string; name: string; line: ProductLine; description: string;
