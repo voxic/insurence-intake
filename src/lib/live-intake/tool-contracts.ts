@@ -10,7 +10,7 @@ export const REALTIME_TOOLS = [
         query: {
           type: "string",
           description:
-            "Product name, line, code, or coverage term. Pass an empty string to list every active product. Swedish category words such as hemförsäkring are accepted.",
+            "Product name, line, code, or coverage term. Pass an empty string to list every active product. English and Swedish category words and synonyms, such as home insurance or hemförsäkring, are accepted.",
         },
       },
       required: ["query"],

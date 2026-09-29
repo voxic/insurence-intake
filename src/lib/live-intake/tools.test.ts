@@ -49,6 +49,34 @@ describe("live intake tool adapter", () => {
     ]);
   });
 
+  it("matches category synonyms in Swedish and English", async () => {
+    const cases: Array<[string, string]> = [
+      ["villaförsäkring", "Home Plus"],
+      ["boendeförsäkring", "Home Plus"],
+      ["home insurance", "Home Plus"],
+      ["car insurance", "Auto Core"],
+      ["hyresgästförsäkring", "Rent Easy"],
+      ["renters insurance", "Rent Easy"],
+    ];
+
+    for (const [query, name] of cases) {
+      const result = await executeRealtimeTool("lookup_demo_product", { query });
+      expect(result, query).toMatchObject({
+        products: [expect.objectContaining({ product: expect.objectContaining({ name }) })],
+      });
+      expect(result.products, query).toHaveLength(1);
+    }
+  });
+
+  it("matches a coverage word inside a longer English question", async () => {
+    const result = await executeRealtimeTool("lookup_demo_product", {
+      query: "do you cover collision damage",
+    });
+    const products = result.products as Array<{ product: { name: string } }>;
+
+    expect(products.map((item) => item.product.name)).toEqual(["Auto Core"]);
+  });
+
   it("matches a Swedish hemförsäkring query to the home product", async () => {
     const singular = await executeRealtimeTool("lookup_demo_product", { query: "hemförsäkring" });
     const plural = await executeRealtimeTool("lookup_demo_product", { query: "Hemförsäkringar" });
