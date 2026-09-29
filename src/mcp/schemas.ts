@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { PRODUCT_LINES } from "@/lib/backoffice/types";
 
 const limit = z.number().int().min(1).max(10).default(10);
+const productLimit = z.number().int().min(1).max(20).default(20);
 const customerId = z.string().regex(/^cus_[a-z0-9_-]+$/);
 const productId = z.string().regex(/^prd_[a-z0-9_-]+$/);
 const claimId = z.string().regex(/^clm_[a-z0-9_-]+$/);
@@ -16,9 +18,9 @@ export const searchCustomersInput = z.object({
 
 export const getCustomerInput = z.object({ customerId });
 export const listProductsInput = z.object({
-  lineOfBusiness: z.enum(["auto", "home", "renters", "pet"]).optional(),
+  lineOfBusiness: z.enum(PRODUCT_LINES).optional(),
   state: z.string().trim().length(2).optional(),
-  limit,
+  limit: productLimit,
 });
 export const getProductInput = z.object({ productId });
 export const priceIndicationInput = z.object({
@@ -48,7 +50,7 @@ export const customerCardSchema = z.object({
 export const productCardSchema = z.object({
   productId,
   name: z.string(),
-  lineOfBusiness: z.enum(["auto", "home", "renters", "pet"]),
+  lineOfBusiness: z.enum(PRODUCT_LINES),
   active: z.boolean(),
   coverages: z.array(z.string()),
 });

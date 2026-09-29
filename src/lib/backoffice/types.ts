@@ -1,5 +1,8 @@
 export type CustomerStatus = "active" | "prospect" | "inactive";
-export type ProductLine = "auto" | "home" | "renters" | "pet";
+export const PRODUCT_LINES = ["auto", "home", "villa", "renters", "travel", "pet", "life", "accident"] as const;
+export type ProductLine = (typeof PRODUCT_LINES)[number];
+export type ProductAliases = { en: string[]; sv: string[] };
+export type ProductPriceRange = { min: number; max: number; currency: "USD" };
 export type PolicyStatus = "active" | "expired" | "cancelled";
 export type ClaimStatus = "reported" | "reviewing" | "approved" | "closed";
 export type ClaimSeverity = "low" | "medium" | "high";
@@ -11,6 +14,8 @@ export type Customer = {
 export type Product = {
   id: string; code: string; name: string; line: ProductLine; description: string;
   coverages: string[]; deductibles: number[]; active: boolean;
+  aliases?: ProductAliases;
+  priceRange?: ProductPriceRange;
 };
 export type Policy = {
   id: string; customerId: string; productId: string; number: string; status: PolicyStatus;

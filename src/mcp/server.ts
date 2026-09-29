@@ -50,7 +50,7 @@ export function createMcpServer() {
     inputSchema: getCustomerInput, annotations: readOnly,
   }, tool(getCustomer));
   server.registerTool("list_demo_products", {
-    title: "List demo products", description: "List synthetic insurance products. Results are capped at 10.",
+    title: "List demo products", description: "List synthetic insurance products. Results are capped at 20.",
     inputSchema: listProductsInput, annotations: readOnly,
   }, tool(listProducts));
   server.registerTool("get_demo_product", {

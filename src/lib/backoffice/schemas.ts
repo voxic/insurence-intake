@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PRODUCT_LINES } from "./types";
 
 export const idSchema = z.string().regex(/^(cus|prd|pol|prc|clm)_[a-z0-9_-]+$/);
 const customerStatus = z.enum(["active", "prospect", "inactive"]);
@@ -81,7 +82,7 @@ export const productCreateSchema = z
   .object({
     code: z.string().min(3).max(24),
     name: z.string().min(2).max(80),
-    line: z.enum(["auto", "home", "renters", "pet"]),
+    line: z.enum(PRODUCT_LINES),
     description: z.string().min(4).max(240),
     coverages: z.array(z.string().min(2)).min(1),
     deductibles: z.array(z.number().int().positive()).min(1),

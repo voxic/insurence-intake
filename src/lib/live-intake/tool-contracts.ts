@@ -3,14 +3,14 @@ export const REALTIME_TOOLS = [
     type: "function",
     name: "lookup_demo_product",
     description:
-      "Find read-only Acme demo product and coverage information. Product information is illustrative, not a quote or binding coverage.",
+      "Look up active Acme demo products. Each match includes name, swedish_name, line, description, coverages, deductibles, and annual_price_range. The range is demo information, not a quote or binding coverage. When several products match, tell the caller the names and lines, then offer to detail one. When one matches, mention coverages, deductible choices, and the annual range.",
     parameters: {
       type: "object",
       properties: {
         query: {
           type: "string",
           description:
-            "Product name, line, code, or coverage term. Pass an empty string to list every active product. Swedish category words such as hemförsäkring are accepted.",
+            "Product name, line, coverage, or alias in English or Swedish. Pass an empty string to list every active product.",
         },
       },
       required: ["query"],
