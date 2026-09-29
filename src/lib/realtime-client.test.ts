@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { VoiceSession } from "./realtime-client";
+import { VoiceSession, type VoiceCallSnapshot } from "./realtime-client";
 import { createCall } from "./transcript";
-import type { RealtimeEvent, VoiceCallSnapshot } from "./types";
+import type { RealtimeEvent } from "./types";
 
 type Internals = {
   handleMessage(raw: unknown): void;
