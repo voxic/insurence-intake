@@ -13,10 +13,14 @@ ENV MCP_PORT=4318
 ENV MCP_HOST=127.0.0.1
 
 COPY package.json package-lock.json ./
-RUN npm ci
+# NODE_ENV=production makes `npm ci` skip devDependencies. `next build` still
+# needs @tailwindcss/postcss, tailwindcss, and typescript from that set.
+RUN npm ci --include=dev
 
 COPY . .
-RUN npm run build
+# Prune build-only tooling after compile. tsx stays: scripts/public-demo.mjs
+# starts the MCP server with it, and it is a production dependency.
+RUN npm run build && npm prune --omit=dev
 
 EXPOSE 8080
 CMD ["node", "scripts/public-demo.mjs"]
