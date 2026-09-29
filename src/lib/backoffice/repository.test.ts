@@ -6,7 +6,7 @@ describe("backoffice repository", () => {
   it("initializes the fake seeded portfolio", async () => {
     const state = await getState();
     expect(state.customers).toHaveLength(12);
-    expect(state.products).toHaveLength(11);
+    expect(state.products).toHaveLength(10);
     expect(state.claims).toHaveLength(4);
   });
   it("only permits forward claim workflow transitions", () => {

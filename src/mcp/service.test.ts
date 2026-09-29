@@ -49,9 +49,9 @@ describe("demo MCP service", () => {
   it("uses the same backoffice catalog for products and resources", async () => {
     const products = await listProducts({ limit: 20 });
     const catalog = await readResource("insurance://demo/catalog") as { products: unknown[] };
-    expect(products.products).toHaveLength(11);
-    expect(catalog.products).toHaveLength(11);
-    expect(await getProduct({ productId: "prd_pet" })).toMatchObject({ product: { active: false } });
+    expect(products.products).toHaveLength(10);
+    expect(catalog.products).toHaveLength(10);
+    expect(await getProduct({ productId: "prd_pet_plus" })).toMatchObject({ product: { name: "Pet Plus", active: true } });
   });
 
   it("never returns government IDs, payment data, secrets, transcripts, or unmasked contact fields", async () => {

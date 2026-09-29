@@ -30,6 +30,8 @@ describe("backoffice seed", () => {
       expect(product.priceRange.min).toBeGreaterThan(0);
     }
 
+    expect(seed.products.filter((product) => product.active !== true).map((product) => product.id)).toEqual([]);
+
     const productIds = new Set(seed.products.map((product) => product.id));
     for (const rule of seed.pricingRules) expect(productIds.has(rule.productId)).toBe(true);
     for (const line of ["home", "villa", "renters", "travel", "pet", "life", "accident"] as const) {

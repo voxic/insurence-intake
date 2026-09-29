@@ -38,14 +38,12 @@ describe("live intake tool adapter", () => {
 
     expect(result.disclaimer).toEqual(expect.stringContaining("not a quote"));
     expect(productNames(result)).toEqual(["Auto Core", "Auto Full", "Auto Partial"]);
-    expect(JSON.stringify(result)).not.toContain("Pet Care");
   });
 
   it("lists every active product when the query is empty", async () => {
     const result = await executeRealtimeTool("lookup_demo_product", { query: "" });
 
     expect(productNames(result)).toEqual(activeCatalog);
-    expect(JSON.stringify(result)).not.toContain("Pet Care");
   });
 
   it("lists every active product for a generic Swedish catalog question", async () => {
@@ -65,6 +63,7 @@ describe("live intake tool adapter", () => {
       ["halvförsäkring", "partial auto", "Auto Partial"],
       ["reseförsäkring", "travel insurance", "Trip Cover"],
       ["husdjursförsäkring", "pet insurance", "Pet Plus"],
+      ["djurförsäkring", "pet care", "Pet Plus"],
       ["livförsäkring", "life insurance", "Term Life"],
       ["olycksfallsförsäkring", "accident insurance", "Personal Accident"],
     ];
