@@ -13,7 +13,7 @@ import {
 export { REALTIME_TOOLS } from "./tool-contracts";
 
 const productLookupSchema = z
-  .object({ query: z.string().trim().min(2).max(80) })
+  .object({ query: z.string().trim().max(80).optional().default("") })
   .strict();
 const policyVerificationSchema = z
   .object({ policy_number: z.string().trim().min(4).max(32) })
@@ -64,6 +64,124 @@ async function verifyPolicyWithMcp(number: string) {
   const policy = profile.policies.find((item) => item.policyId === local.policy.id);
   if (!policy) return null;
   return { customer: customer.name, policy: local.policy };
+}
+
+// Product names and lines in the seed catalog are English. Live callers ask in
+// other languages, and a "what do you offer" question has no category token.
+const GENERIC_PRODUCT_TOKENS = new Set([
+  "a",
+  "acme",
+  "all",
+  "alla",
+  "an",
+  "any",
+  "are",
+  "av",
+  "available",
+  "catalog",
+  "catalogue",
+  "demo",
+  "det",
+  "do",
+  "en",
+  "era",
+  "ett",
+  "exist",
+  "exists",
+  "finns",
+  "for",
+  "för",
+  "försäkring",
+  "försäkringar",
+  "försäkringstyp",
+  "försäkringstyper",
+  "har",
+  "have",
+  "insurance",
+  "is",
+  "just",
+  "katalog",
+  "kind",
+  "kinds",
+  "list",
+  "lista",
+  "ni",
+  "now",
+  "nu",
+  "och",
+  "of",
+  "olika",
+  "our",
+  "product",
+  "products",
+  "produkt",
+  "produkter",
+  "som",
+  "specific",
+  "specifika",
+  "the",
+  "there",
+  "typ",
+  "type",
+  "types",
+  "typer",
+  "vad",
+  "vilka",
+  "vilken",
+  "vilket",
+  "våra",
+  "what",
+  "which",
+  "you",
+  "your",
+]);
+
+function productLineFromToken(token: string) {
+  if (
+    token === "hem" ||
+    token.startsWith("hemförsäkr") ||
+    token === "home" ||
+    token === "homeowner" ||
+    token === "homeowners"
+  ) {
+    return "home";
+  }
+  if (token === "bil" || token.startsWith("bilförsäkr") || token === "auto" || token === "car") {
+    return "auto";
+  }
+  if (
+    token.startsWith("hyresförsäkr") ||
+    token.startsWith("hyresgästförsäkr") ||
+    token === "renters" ||
+    token === "renter"
+  ) {
+    return "renters";
+  }
+  if (
+    token.startsWith("djurförsäkr") ||
+    token.startsWith("husdjursförsäkr") ||
+    token.startsWith("husdjurförsäkr") ||
+    token === "pet"
+  ) {
+    return "pet";
+  }
+  return null;
+}
+
+function productQueryPlan(query: string) {
+  const trimmed = query.trim().toLowerCase();
+  if (!trimmed) return { listAll: true, lines: [] as string[] };
+  const tokens = trimmed.split(/[^a-z0-9åäö]+/).filter(Boolean);
+  const lines = [
+    ...new Set(
+      tokens
+        .map(productLineFromToken)
+        .filter((line): line is NonNullable<typeof line> => line !== null),
+    ),
+  ];
+  if (lines.length > 0) return { listAll: false, lines };
+  const specific = tokens.filter((token) => !GENERIC_PRODUCT_TOKENS.has(token));
+  return { listAll: specific.length === 0, lines };
 }
 
 function claimFingerprint(input: Omit<z.infer<typeof claimCreateSchema>, "confirmation_id">) {
@@ -177,6 +295,7 @@ export async function executeRealtimeTool(
     const parsed = productLookupSchema.safeParse(input);
     if (!parsed.success) return { error: "A product search query is required." };
     const query = parsed.data.query.toLowerCase();
+    const plan = productQueryPlan(query);
     const catalog = (await listProducts({ limit: 10 })) as {
       products: Array<{
         productId: string;
@@ -190,12 +309,14 @@ export async function executeRealtimeTool(
       await Promise.all(
         catalog.products
           .filter((product) => product.active)
-          .filter((product) =>
-            [product.name, product.lineOfBusiness, ...product.coverages]
+          .filter((product) => {
+            if (plan.listAll) return true;
+            if (plan.lines.length > 0) return plan.lines.includes(product.lineOfBusiness);
+            return [product.name, product.lineOfBusiness, ...product.coverages]
               .join(" ")
               .toLowerCase()
-              .includes(query),
-          )
+              .includes(query);
+          })
           .slice(0, 10)
           .map((product) => getProduct({ productId: product.productId })),
       )
