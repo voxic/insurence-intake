@@ -13,6 +13,45 @@ export function createCall(): IntakeCall {
   };
 }
 
+function normalizeText(text: string) {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+function lastIndexBy(turns: TranscriptTurn[], predicate: (turn: TranscriptTurn) => boolean) {
+  for (let index = turns.length - 1; index >= 0; index -= 1) {
+    if (predicate(turns[index])) return index;
+  }
+  return -1;
+}
+
+/**
+ * Picks the turn an incoming transcript event belongs to. Streams from both
+ * speakers interleave (a cancelled agent line can still trail in while the
+ * caller talks), so the match is by id anywhere in the list, then by the
+ * speaker's most recent still-open line — never "whatever line is last".
+ */
+function findTurnIndex(turns: TranscriptTurn[], speaker: Speaker, existingId?: string) {
+  if (existingId) {
+    const byId = lastIndexBy(turns, (turn) => turn.id === existingId);
+    if (byId >= 0) return byId;
+  }
+  const latest = lastIndexBy(turns, (turn) => turn.speaker === speaker);
+  return latest >= 0 && turns[latest].status === "partial" ? latest : -1;
+}
+
+/**
+ * A final that repeats the speaker's previous line word-for-word, with nothing
+ * finalized in between, is the same utterance arriving twice (e.g. the
+ * transcription `completed` event plus the `conversation.item.created` echo).
+ * A genuine repeat ("Yes." … agent question … "Yes.") has a final agent line
+ * between the two and is kept.
+ */
+function isRepeatedFinal(turns: TranscriptTurn[], speaker: Speaker, text: string) {
+  const latest = lastIndexBy(turns, (turn) => turn.speaker === speaker);
+  if (latest < 0 || normalizeText(turns[latest].text) !== normalizeText(text)) return false;
+  return turns.slice(latest + 1).every((turn) => turn.status === "partial");
+}
+
 export function upsertTurn(
   turns: TranscriptTurn[],
   speaker: Speaker,
@@ -26,22 +65,18 @@ export function upsertTurn(
   }
 
   const now = new Date().toISOString();
-  const last = turns[turns.length - 1];
-  const canReuse =
-    existingId
-      ? last?.id === existingId
-      : last && last.speaker === speaker && last.status === "partial";
+  const index = findTurnIndex(turns, speaker, existingId);
+  if (index >= 0) {
+    const current = turns[index];
+    return turns.map((turn, position) =>
+      position === index
+        ? { ...current, text: trimmed || current.text, status, updatedAt: now }
+        : turn,
+    );
+  }
 
-  if (last && canReuse) {
-    return [
-      ...turns.slice(0, -1),
-      {
-        ...last,
-        text: trimmed || last.text,
-        status,
-        updatedAt: now,
-      },
-    ];
+  if (status === "final" && isRepeatedFinal(turns, speaker, trimmed)) {
+    return turns;
   }
 
   return [

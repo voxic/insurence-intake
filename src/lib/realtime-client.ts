@@ -54,6 +54,17 @@ function readTranscript(event: RealtimeEvent): string {
   return "";
 }
 
+/**
+ * Stable transcript line id for a Realtime conversation item. All events for
+ * one utterance (interim, final, item echo) carry the same `item_id`, so they
+ * all land on the same notepad line.
+ */
+function turnIdFrom(speaker: Speaker, event: RealtimeEvent) {
+  const item = event.item as Record<string, unknown> | undefined;
+  const itemId = typeof event.item_id === "string" ? event.item_id : item?.id;
+  return typeof itemId === "string" && itemId ? `${speaker}:${itemId}` : undefined;
+}
+
 export class VoiceSession {
   private listeners = new Set<Listener>();
   private socket: WebSocket | null = null;
@@ -66,6 +77,8 @@ export class VoiceSession {
   private persistTimer: number | null = null;
   private greeted = false;
   private agentStream: "audio" | "text" | null = null;
+  // Raw streamed agent text; stored turns are trimmed, so re-reading them would drop inter-delta spaces.
+  private agentText = "";
   private appendedChunks = 0;
   private toolTurn: RealtimeToolTurn | null = null;
   private snapshot: VoiceCallSnapshot = {
@@ -112,6 +125,7 @@ export class VoiceSession {
     this.agentPartialId = null;
     this.greeted = false;
     this.agentStream = null;
+    this.agentText = "";
     this.appendedChunks = 0;
     this.toolTurn = new RealtimeToolTurn({
       run: (callId, name, argumentsJson) => this.runToolCall(callId, name, argumentsJson),
@@ -343,16 +357,18 @@ export class VoiceSession {
         this.player?.interrupt();
         this.toolTurn?.interrupt();
         this.socket?.send(JSON.stringify({ type: "response.cancel" }));
-        this.userPartialId = crypto.randomUUID();
+        this.userPartialId = turnIdFrom("user", event) ?? crypto.randomUUID();
         break;
       case "conversation.item.input_audio_transcription.updated": {
-        const text = readTranscript(event);
-        this.applyTurn("user", text, "partial", this.userPartialId ?? undefined);
+        // Interim transcripts carry the full text so far: replace the open line, never append.
+        const id = turnIdFrom("user", event) ?? this.userPartialId ?? crypto.randomUUID();
+        this.userPartialId = id;
+        this.applyTurn("user", readTranscript(event), "partial", id);
         break;
       }
       case "conversation.item.input_audio_transcription.completed": {
-        const text = readTranscript(event);
-        this.applyTurn("user", text, "final", this.userPartialId ?? undefined);
+        const id = turnIdFrom("user", event) ?? this.userPartialId ?? undefined;
+        this.applyTurn("user", readTranscript(event), "final", id);
         this.userPartialId = null;
         break;
       }
@@ -373,13 +389,14 @@ export class VoiceSession {
           break;
         }
         this.agentStream = stream;
-        if (!this.agentPartialId) {
-          this.agentPartialId = crypto.randomUUID();
+        const id = turnIdFrom("agent", event) ?? this.agentPartialId ?? crypto.randomUUID();
+        if (id !== this.agentPartialId) {
+          this.agentPartialId = id;
+          this.agentText = "";
         }
         const incoming = typeof event.delta === "string" ? event.delta : readTranscript(event);
-        const last = this.snapshot.call?.turns.find((turn) => turn.id === this.agentPartialId);
-        const nextText = last ? `${last.text}${incoming}` : incoming;
-        this.applyTurn("agent", nextText, "partial", this.agentPartialId);
+        this.agentText += incoming;
+        this.applyTurn("agent", this.agentText, "partial", id);
         break;
       }
       case "response.output_audio_transcript.done":
@@ -389,9 +406,10 @@ export class VoiceSession {
         if (this.agentStream && this.agentStream !== stream) {
           break;
         }
-        const text = readTranscript(event);
-        this.applyTurn("agent", text, "final", this.agentPartialId ?? undefined);
+        const id = turnIdFrom("agent", event) ?? this.agentPartialId ?? undefined;
+        this.applyTurn("agent", readTranscript(event) || this.agentText, "final", id);
         this.agentPartialId = null;
+        this.agentText = "";
         this.agentStream = null;
         break;
       }
@@ -414,13 +432,9 @@ export class VoiceSession {
         }
         const role = item?.role === "user" ? "user" : item?.role === "assistant" ? "agent" : null;
         const text = readTranscript(event);
-        const already =
-          text &&
-          this.snapshot.call?.turns.some(
-            (turn) => turn.speaker === role && turn.text === text,
-          );
-        if (role && text && !already) {
-          this.applyTurn(role, text, "final");
+        if (role && text) {
+          // Same item id as the transcription events, so this echo lands on the existing line.
+          this.applyTurn(role, text, "final", turnIdFrom(role, event));
         }
         break;
       }
