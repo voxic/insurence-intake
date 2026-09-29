@@ -5,7 +5,7 @@ import {
   isValidDemoPassword,
 } from "@/lib/demo-password";
 
-const SESSION_MAX_AGE_SECONDS = 60 * 60 * 8;
+const DEMO_SESSION_MAX_AGE_SECONDS = 60 * 60 * 8;
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as { password?: unknown } | null;
@@ -28,8 +28,9 @@ export async function POST(request: Request) {
     httpOnly: true,
     sameSite: "strict",
     secure: process.env.NODE_ENV === "production",
-    path: "/api/session",
-    maxAge: SESSION_MAX_AGE_SECONDS,
+    // Site-wide so every page load (/, /settings) can see the gate is already open.
+    path: "/",
+    maxAge: DEMO_SESSION_MAX_AGE_SECONDS,
   });
   return response;
 }

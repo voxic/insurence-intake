@@ -27,7 +27,7 @@ describe("POST /api/demo-login", () => {
     expect(response.headers.get("set-cookie")).toBeNull();
   });
 
-  it("sets a scoped HTTP-only, SameSite cookie after successful login", async () => {
+  it("sets a site-wide HTTP-only, SameSite session cookie after successful login", async () => {
     process.env.DEMO_PASSWORD = demoPassword;
     const response = await login(demoPassword);
     const cookie = response.headers.get("set-cookie") ?? "";
@@ -36,6 +36,25 @@ describe("POST /api/demo-login", () => {
     expect(cookie).toContain(`${DEMO_SESSION_COOKIE}=`);
     expect(cookie).toContain("HttpOnly");
     expect(cookie).toContain("SameSite=strict");
-    expect(cookie).toContain("Path=/api/session");
+    // Path=/ so page navigations between / and /settings keep the gate open.
+    expect(cookie).toMatch(/Path=\/(?:;|$)/);
+    expect(cookie).not.toContain("Path=/api/session");
+    const maxAge = Number(/Max-Age=(\d+)/.exec(cookie)?.[1]);
+    expect(maxAge).toBeGreaterThanOrEqual(60 * 60 * 2);
+    expect(maxAge).toBeLessThanOrEqual(60 * 60 * 24);
+  });
+
+  it("keeps the cookie value free of the password and server secrets", async () => {
+    process.env.DEMO_PASSWORD = demoPassword;
+    process.env.XAI_API_KEY = "xai-server-only-key";
+    process.env.MCP_AUTH_TOKEN = "mcp-server-only-token-value";
+    const response = await login(demoPassword);
+    const cookie = response.headers.get("set-cookie") ?? "";
+
+    expect(cookie).not.toContain(demoPassword);
+    expect(cookie).not.toContain("xai-server-only-key");
+    expect(cookie).not.toContain("mcp-server-only-token-value");
+    delete process.env.XAI_API_KEY;
+    delete process.env.MCP_AUTH_TOKEN;
   });
 });
