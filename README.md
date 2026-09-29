@@ -173,7 +173,7 @@ Keep **exactly one** machine. `fly.toml` already sets `min_machines_running = 1`
 
 ### Starting a call on the public host
 
-Open `https://<app>.fly.dev/`, enter `DEMO_PASSWORD`, then tap **Call**. The login route exchanges the password for a signed, HTTP-only cookie that is sent only to `/api/session`; the browser never sees `SESSION_ACCESS_TOKEN`, `XAI_API_KEY`, or `MCP_AUTH_TOKEN`.
+Open `https://<app>.fly.dev/`, enter `DEMO_PASSWORD`, then tap **Call**. The login route exchanges the password for a signed, HTTP-only cookie (`Path=/`, 8-hour TTL) that keeps you signed in across page navigations for the session; the browser never sees `SESSION_ACCESS_TOKEN`, `XAI_API_KEY`, or `MCP_AUTH_TOKEN`.
 
 For an operator/API request, `POST /api/session` still accepts the session token:
 
