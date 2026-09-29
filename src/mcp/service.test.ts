@@ -47,10 +47,10 @@ describe("demo MCP service", () => {
   });
 
   it("uses the same backoffice catalog for products and resources", async () => {
-    const products = await listProducts({ limit: 10 });
+    const products = await listProducts({ limit: 20 });
     const catalog = await readResource("insurance://demo/catalog") as { products: unknown[] };
-    expect(products.products).toHaveLength(4);
-    expect(catalog.products).toHaveLength(4);
+    expect(products.products).toHaveLength(11);
+    expect(catalog.products).toHaveLength(11);
     expect(await getProduct({ productId: "prd_pet" })).toMatchObject({ product: { active: false } });
   });
 

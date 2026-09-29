@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { createClaim, getState } from "@/lib/backoffice/repository";
 import { claimCreateSchema as backofficeClaimCreateSchema } from "@/lib/backoffice/schemas";
-import type { Claim, Policy, ProductLine } from "@/lib/backoffice/types";
-import { getCustomer, getProduct, listProducts, searchCustomers } from "@/mcp/service";
+import type { Claim, Policy, Product } from "@/lib/backoffice/types";
+import { getCustomer, searchCustomers } from "@/mcp/service";
 import { maskNumber } from "@/mcp/redaction";
 import {
   consumeConfirmation,
@@ -66,70 +66,7 @@ async function verifyPolicyWithMcp(number: string) {
   return { customer: customer.name, policy: local.policy };
 }
 
-function linePattern(alternatives: string[]) {
-  return new RegExp(`(?:^|[^a-z0-9åäö])(?:${alternatives.join("|")})(?=$|[^a-z0-9åäö])`, "u");
-}
-
-// Catalog names and lines are English. Match category language inside the question
-// instead of requiring the whole query to be a substring of those fields.
-const PRODUCT_LINE_PATTERNS: Array<{ line: ProductLine; pattern: RegExp }> = [
-  {
-    line: "home",
-    pattern: linePattern([
-      "hemförsäkr\\w*",
-      "villaförsäkr\\w*",
-      "boendeförsäkr\\w*",
-      "villahem\\w*",
-      "homeowners?(?:\\s+insurance)?",
-      "home(?:\\s+insurance)?",
-      "household(?:\\s+insurance)?",
-      "house(?:\\s+insurance)?",
-      "dwelling",
-      "hem",
-      "villa",
-    ]),
-  },
-  {
-    line: "auto",
-    pattern: linePattern([
-      "bilförsäkr\\w*",
-      "fordonsförsäkr\\w*",
-      "motorfordonsförsäkr\\w*",
-      "trafikförsäkr\\w*",
-      "helförsäkr\\w*",
-      "halvförsäkr\\w*",
-      "automobiles?(?:\\s+insurance)?",
-      "auto(?:\\s+insurance)?",
-      "cars?(?:\\s+insurance)?",
-      "vehicles?(?:\\s+insurance)?",
-      "collision",
-      "comprehensive",
-      "bil",
-    ]),
-  },
-  {
-    line: "renters",
-    pattern: linePattern([
-      "hyresförsäkr\\w*",
-      "hyresgästförsäkr\\w*",
-      "inboendeförsäkr\\w*",
-      "renters?(?:\\s+insurance)?",
-      "tenants?(?:\\s+insurance)?",
-      "contents(?:\\s+insurance)?",
-    ]),
-  },
-  {
-    line: "pet",
-    pattern: linePattern([
-      "husdjursförsäkr\\w*",
-      "djurförsäkr\\w*",
-      "hundförsäkr\\w*",
-      "kattförsäkr\\w*",
-      "pets?(?:\\s+(?:insurance|care))?",
-    ]),
-  },
-];
-
+// Filler around a catalog question. Category words live on each product in the seed.
 const GENERIC_PRODUCT_TOKENS = new Set([
   "a",
   "acme",
@@ -198,19 +135,51 @@ const GENERIC_PRODUCT_TOKENS = new Set([
   "your",
 ]);
 
-function productQueryPlan(query: string) {
-  const trimmed = query.trim().toLowerCase();
-  if (!trimmed) return { listAll: true, lines: [] as ProductLine[], tokens: [] as string[] };
-  const lines = [
-    ...new Set(
-      PRODUCT_LINE_PATTERNS.filter(({ pattern }) => pattern.test(trimmed)).map(({ line }) => line),
-    ),
-  ];
-  if (lines.length > 0) return { listAll: false, lines, tokens: [] as string[] };
-  const tokens = trimmed
-    .split(/[^a-z0-9åäö]+/)
-    .filter((token) => token.length >= 3 && !GENERIC_PRODUCT_TOKENS.has(token));
-  return { listAll: tokens.length === 0, lines, tokens };
+function catalogPhrases(product: Product) {
+  return [product.name, product.line, ...product.coverages, ...(product.aliases?.en ?? []), ...(product.aliases?.sv ?? [])]
+    .map((value) => value.trim().toLowerCase())
+    .filter((value) => value.length >= 3);
+}
+
+function includesPhrase(query: string, phrase: string) {
+  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?:^|[^a-z0-9åäö])${escaped}(?=$|[^a-z0-9åäö])`, "u").test(query);
+}
+
+function isGenericCatalogQuery(query: string) {
+  const tokens = query.toLowerCase().split(/[^a-z0-9åäö]+/).filter(Boolean);
+  return tokens.length === 0 || tokens.every((token) => GENERIC_PRODUCT_TOKENS.has(token));
+}
+
+function matchingProducts(products: Product[], query: string) {
+  if (isGenericCatalogQuery(query)) return products;
+  const hits = products
+    .map((product) => ({
+      product,
+      phrases: catalogPhrases(product).filter((phrase) => includesPhrase(query, phrase)),
+    }))
+    .filter((hit) => hit.phrases.length > 0);
+  const longest = Math.max(0, ...hits.flatMap((hit) => hit.phrases.map((phrase) => phrase.length)));
+  return hits
+    .filter((hit) => hit.phrases.some((phrase) => phrase.length === longest))
+    .map((hit) => hit.product);
+}
+
+function spokenSwedishName(product: Product) {
+  const aliases = product.aliases?.sv ?? [];
+  return aliases.find((alias) => alias.toLowerCase().includes("försäkring")) ?? aliases[0] ?? product.name;
+}
+
+function toCallerProduct(product: Product) {
+  return {
+    name: product.name,
+    swedish_name: spokenSwedishName(product),
+    line: product.line,
+    description: product.description,
+    coverages: product.coverages,
+    deductibles: product.deductibles,
+    ...(product.priceRange ? { annual_price_range: product.priceRange } : {}),
+  };
 }
 
 function claimFingerprint(input: Omit<z.infer<typeof claimCreateSchema>, "confirmation_id">) {
@@ -324,33 +293,15 @@ export async function executeRealtimeTool(
     const parsed = productLookupSchema.safeParse(input);
     if (!parsed.success) return { error: "A product search query is required." };
     const query = parsed.data.query.toLowerCase();
-    const plan = productQueryPlan(query);
-    const catalog = (await listProducts({ limit: 10 })) as {
-      products: Array<{
-        productId: string;
-        name: string;
-        lineOfBusiness: string;
-        active: boolean;
-        coverages: string[];
-      }>;
+    const catalog = (await getState()).products.filter((product) => product.active);
+    const matches = matchingProducts(catalog, query)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .slice(0, 20)
+      .map(toCallerProduct);
+    return {
+      products: matches,
+      disclaimer: "Demo information only. Annual ranges are not a quote or binding coverage.",
     };
-    const products = (
-      await Promise.all(
-        catalog.products
-          .filter((product) => product.active)
-          .filter((product) => {
-            if (plan.listAll) return true;
-            if (plan.lines.includes(product.lineOfBusiness as ProductLine)) return true;
-            const haystack = [product.name, product.lineOfBusiness, ...product.coverages]
-              .join(" ")
-              .toLowerCase();
-            return plan.tokens.some((token) => haystack.includes(token));
-          })
-          .slice(0, 10)
-          .map((product) => getProduct({ productId: product.productId })),
-      )
-    ).filter((product): product is NonNullable<typeof product> => Boolean(product));
-    return { products, disclaimer: "Demo information only. It is not a quote or binding coverage." };
   }
 
   if (name === "verify_demo_policy") {
