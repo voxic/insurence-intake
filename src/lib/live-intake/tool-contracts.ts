@@ -6,7 +6,13 @@ export const REALTIME_TOOLS = [
       "Find read-only Acme demo product and coverage information. Product information is illustrative, not a quote or binding coverage.",
     parameters: {
       type: "object",
-      properties: { query: { type: "string", description: "Product name, line, code, or coverage term." } },
+      properties: {
+        query: {
+          type: "string",
+          description:
+            "Product name, line, code, or coverage term. Pass an empty string to list every active product. Swedish category words such as hemförsäkring are accepted.",
+        },
+      },
       required: ["query"],
       additionalProperties: false,
     },

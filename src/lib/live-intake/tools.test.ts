@@ -24,6 +24,47 @@ describe("live intake tool adapter", () => {
     });
   });
 
+  it("lists every active product when the query is empty", async () => {
+    const result = await executeRealtimeTool("lookup_demo_product", { query: "" });
+    const products = result.products as Array<{ product: { name: string } }>;
+
+    expect(products.map((item) => item.product.name).sort()).toEqual([
+      "Auto Core",
+      "Home Plus",
+      "Rent Easy",
+    ]);
+    expect(JSON.stringify(result)).not.toContain("Pet Care");
+  });
+
+  it("lists every active product for a generic Swedish catalog question", async () => {
+    const result = await executeRealtimeTool("lookup_demo_product", {
+      query: "vilka försäkringar finns",
+    });
+    const products = result.products as Array<{ product: { name: string } }>;
+
+    expect(products.map((item) => item.product.name).sort()).toEqual([
+      "Auto Core",
+      "Home Plus",
+      "Rent Easy",
+    ]);
+  });
+
+  it("matches a Swedish hemförsäkring query to the home product", async () => {
+    const singular = await executeRealtimeTool("lookup_demo_product", { query: "hemförsäkring" });
+    const plural = await executeRealtimeTool("lookup_demo_product", { query: "Hemförsäkringar" });
+
+    for (const result of [singular, plural]) {
+      expect(result).toMatchObject({
+        products: [
+          expect.objectContaining({
+            product: expect.objectContaining({ name: "Home Plus", lineOfBusiness: "home" }),
+          }),
+        ],
+      });
+      expect(result.products).toHaveLength(1);
+    }
+  });
+
   it("verifies a policy with masked customer and policy details", async () => {
     const result = await executeRealtimeTool("verify_demo_policy", {
       policy_number: "ACM-A-10001",
