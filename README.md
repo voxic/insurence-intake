@@ -32,7 +32,7 @@ Open [http://127.0.0.1:4317](http://127.0.0.1:4317). The key must stay on the se
 | `XAI_API_KEY` | `.env.local` / Fly secrets only | Used by `POST /api/session` to mint an ephemeral client secret from `https://api.x.ai/v1/realtime/client_secrets`. Never sent to the browser, MCP responses, logs, or git. |
 | `MCP_AUTH_TOKEN` | `.env.local` / Fly secrets only | Server-held bearer for Streamable HTTP MCP (`Authorization: Bearer …`). Min 24 characters. Required for `npm run mcp:http` and `npm run start:public`. |
 | `SESSION_ACCESS_TOKEN` | `.env.local` / Fly secrets only | Shared secret required by `POST /api/session` on the public host. Min 16 characters. **Required** by `npm run start:public` — it refuses to boot without it, so the public URL never mints Realtime tokens (and thus never spends `XAI_API_KEY`) for anonymous callers. Unset locally = open. |
-| `DEMO_PASSWORD` | `.env.local` / Fly secrets only | Shared password for the public desk-phone UI. Min 8 characters. `POST /api/demo-login` validates it server-side and sets an HTTP-only, `SameSite=Strict` cookie scoped to `/api/session`; required by `npm run start:public`. Unset local dev stays open. |
+| `DEMO_PASSWORD` | `.env.local` / Fly secrets only | Shared password for the public desk-phone UI. Min 8 characters. `POST /api/demo-login` validates it server-side and sets a site-wide (`Path=/`), HTTP-only, `SameSite=Strict` cookie valid for 8 hours, so the gate stays open across `/` and `/settings`; required by `npm run start:public`. Unset local dev stays open. |
 | `DATA_DIR` | Fly volume | Persistent JSON/transcript root, read at runtime by both Next and MCP. Defaults to `./data`. Set to `/data` on Fly. |
 
 Do **not** prefix these with `NEXT_PUBLIC_`. The browser never receives the long-lived xAI key, the MCP bearer, the session access token, or the demo password.
@@ -173,7 +173,7 @@ Keep **exactly one** machine. `fly.toml` already sets `min_machines_running = 1`
 
 ### Starting a call on the public host
 
-Open `https://<app>.fly.dev/`, enter `DEMO_PASSWORD`, then tap **Call**. The login route exchanges the password for a signed, HTTP-only cookie that is sent only to `/api/session`; the browser never sees `SESSION_ACCESS_TOKEN`, `XAI_API_KEY`, or `MCP_AUTH_TOKEN`.
+Open `https://<app>.fly.dev/`, enter `DEMO_PASSWORD`, then tap **Call**. The login route exchanges the password for a signed, HTTP-only cookie (`Path=/`, 8-hour TTL) that keeps you signed in across page navigations for the session; the browser never sees `SESSION_ACCESS_TOKEN`, `XAI_API_KEY`, or `MCP_AUTH_TOKEN`.
 
 For an operator/API request, `POST /api/session` still accepts the session token:
 

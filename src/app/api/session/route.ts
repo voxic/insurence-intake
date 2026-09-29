@@ -40,11 +40,12 @@ function extractToken(payload: Record<string, unknown>) {
   return null;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   return NextResponse.json({
     configured: Boolean(process.env.XAI_API_KEY),
     accessTokenRequired: Boolean(configuredSessionAccessToken()),
     demoPasswordRequired: Boolean(configuredDemoPassword()),
+    demoSessionActive: hasDemoSession(request.headers.get("cookie")),
   });
 }
 

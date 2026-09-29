@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createDemoSession, DEMO_SESSION_COOKIE } from "@/lib/demo-password";
+import { needsDemoLogin, type DemoGateConfig } from "@/lib/demo-gate";
 import { SESSION_ACCESS_TOKEN_MIN_LENGTH } from "@/lib/session-guard";
+import { POST as demoLogin } from "../demo-login/route";
 import { GET, POST } from "./route";
 
 const token = "t".repeat(SESSION_ACCESS_TOKEN_MIN_LENGTH);
@@ -72,17 +74,57 @@ describe("POST /api/session guard", () => {
   });
 });
 
+function get(headers: Record<string, string> = {}) {
+  return GET(new Request("http://localhost/api/session", { headers }));
+}
+
 describe("GET /api/session", () => {
   it("reports whether a session access token is required", async () => {
     process.env.SESSION_ACCESS_TOKEN = token;
-    await expect((await GET()).json()).resolves.toMatchObject({ accessTokenRequired: true });
+    await expect((await get()).json()).resolves.toMatchObject({ accessTokenRequired: true });
     delete process.env.SESSION_ACCESS_TOKEN;
-    await expect((await GET()).json()).resolves.toMatchObject({ accessTokenRequired: false });
+    await expect((await get()).json()).resolves.toMatchObject({ accessTokenRequired: false });
+  });
+
+  it("reports an active demo session only for a valid demo-login cookie", async () => {
+    process.env.SESSION_ACCESS_TOKEN = token;
+    process.env.DEMO_PASSWORD = demoPassword;
+
+    await expect((await get()).json()).resolves.toMatchObject({
+      demoPasswordRequired: true,
+      demoSessionActive: false,
+    });
+    await expect(
+      (await get({ cookie: `${DEMO_SESSION_COOKIE}=forged-value` })).json(),
+    ).resolves.toMatchObject({ demoSessionActive: false });
+    await expect(
+      (await get({ cookie: `other=1; ${DEMO_SESSION_COOKIE}=${createDemoSession()}` })).json(),
+    ).resolves.toMatchObject({ demoPasswordRequired: true, demoSessionActive: true });
+  });
+
+  it("keeps a returning user signed in across page loads after demo login", async () => {
+    process.env.SESSION_ACCESS_TOKEN = token;
+    process.env.DEMO_PASSWORD = demoPassword;
+    const login = await demoLogin(
+      new Request("http://localhost/api/demo-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: demoPassword }),
+      }),
+    );
+    const cookie = (login.headers.get("set-cookie") ?? "").split(";")[0];
+
+    // Each page (/ then /settings then /) re-checks the gate with the same cookie jar.
+    for (const page of ["/", "/settings", "/"]) {
+      const config = (await (await get({ cookie, referer: `http://localhost${page}` })).json()) as DemoGateConfig;
+      expect(needsDemoLogin(config)).toBe(false);
+    }
+    expect(needsDemoLogin((await (await get()).json()) as DemoGateConfig)).toBe(true);
   });
 
   it("does not return the xAI API key to browser configuration requests", async () => {
     process.env.XAI_API_KEY = "xai-server-only-key";
-    const body = await (await GET()).text();
+    const body = await (await get()).text();
 
     expect(body).not.toContain(process.env.XAI_API_KEY);
   });

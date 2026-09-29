@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { DemoLoginGate } from "@/components/demo-login-gate";
+import { needsDemoLogin, type DemoGateConfig } from "@/lib/demo-gate";
 import { DeskNotepad } from "@/components/desk-notepad";
 import { IntakeScreen } from "@/components/intake-screen";
 import { PhoneFrame } from "@/components/phone-frame";
@@ -24,13 +25,9 @@ export function DeskScene() {
   }, []);
 
   useEffect(() => {
-    void fetch("/api/session")
+    void fetch("/api/session", { cache: "no-store" })
       .then((response) => response.json())
-      .then((config: { accessTokenRequired?: boolean; demoPasswordRequired?: boolean }) => {
-        setDemoPasswordRequired(
-          Boolean(config.accessTokenRequired && config.demoPasswordRequired),
-        );
-      })
+      .then((config: DemoGateConfig) => setDemoPasswordRequired(needsDemoLogin(config)))
       .catch(() => setDemoPasswordRequired(false));
   }, []);
 
