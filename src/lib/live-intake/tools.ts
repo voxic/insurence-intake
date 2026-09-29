@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createClaim, getState } from "@/lib/backoffice/repository";
 import { claimCreateSchema as backofficeClaimCreateSchema } from "@/lib/backoffice/schemas";
-import type { Claim, Policy } from "@/lib/backoffice/types";
+import type { Claim, Policy, ProductLine } from "@/lib/backoffice/types";
 import { getCustomer, getProduct, listProducts, searchCustomers } from "@/mcp/service";
 import { maskNumber } from "@/mcp/redaction";
 import {
@@ -66,8 +66,70 @@ async function verifyPolicyWithMcp(number: string) {
   return { customer: customer.name, policy: local.policy };
 }
 
-// Product names and lines in the seed catalog are English. Live callers ask in
-// other languages, and a "what do you offer" question has no category token.
+function linePattern(alternatives: string[]) {
+  return new RegExp(`(?:^|[^a-z0-9åäö])(?:${alternatives.join("|")})(?=$|[^a-z0-9åäö])`, "u");
+}
+
+// Catalog names and lines are English. Match category language inside the question
+// instead of requiring the whole query to be a substring of those fields.
+const PRODUCT_LINE_PATTERNS: Array<{ line: ProductLine; pattern: RegExp }> = [
+  {
+    line: "home",
+    pattern: linePattern([
+      "hemförsäkr\\w*",
+      "villaförsäkr\\w*",
+      "boendeförsäkr\\w*",
+      "villahem\\w*",
+      "homeowners?(?:\\s+insurance)?",
+      "home(?:\\s+insurance)?",
+      "household(?:\\s+insurance)?",
+      "house(?:\\s+insurance)?",
+      "dwelling",
+      "hem",
+      "villa",
+    ]),
+  },
+  {
+    line: "auto",
+    pattern: linePattern([
+      "bilförsäkr\\w*",
+      "fordonsförsäkr\\w*",
+      "motorfordonsförsäkr\\w*",
+      "trafikförsäkr\\w*",
+      "helförsäkr\\w*",
+      "halvförsäkr\\w*",
+      "automobiles?(?:\\s+insurance)?",
+      "auto(?:\\s+insurance)?",
+      "cars?(?:\\s+insurance)?",
+      "vehicles?(?:\\s+insurance)?",
+      "collision",
+      "comprehensive",
+      "bil",
+    ]),
+  },
+  {
+    line: "renters",
+    pattern: linePattern([
+      "hyresförsäkr\\w*",
+      "hyresgästförsäkr\\w*",
+      "inboendeförsäkr\\w*",
+      "renters?(?:\\s+insurance)?",
+      "tenants?(?:\\s+insurance)?",
+      "contents(?:\\s+insurance)?",
+    ]),
+  },
+  {
+    line: "pet",
+    pattern: linePattern([
+      "husdjursförsäkr\\w*",
+      "djurförsäkr\\w*",
+      "hundförsäkr\\w*",
+      "kattförsäkr\\w*",
+      "pets?(?:\\s+(?:insurance|care))?",
+    ]),
+  },
+];
+
 const GENERIC_PRODUCT_TOKENS = new Set([
   "a",
   "acme",
@@ -136,52 +198,19 @@ const GENERIC_PRODUCT_TOKENS = new Set([
   "your",
 ]);
 
-function productLineFromToken(token: string) {
-  if (
-    token === "hem" ||
-    token.startsWith("hemförsäkr") ||
-    token === "home" ||
-    token === "homeowner" ||
-    token === "homeowners"
-  ) {
-    return "home";
-  }
-  if (token === "bil" || token.startsWith("bilförsäkr") || token === "auto" || token === "car") {
-    return "auto";
-  }
-  if (
-    token.startsWith("hyresförsäkr") ||
-    token.startsWith("hyresgästförsäkr") ||
-    token === "renters" ||
-    token === "renter"
-  ) {
-    return "renters";
-  }
-  if (
-    token.startsWith("djurförsäkr") ||
-    token.startsWith("husdjursförsäkr") ||
-    token.startsWith("husdjurförsäkr") ||
-    token === "pet"
-  ) {
-    return "pet";
-  }
-  return null;
-}
-
 function productQueryPlan(query: string) {
   const trimmed = query.trim().toLowerCase();
-  if (!trimmed) return { listAll: true, lines: [] as string[] };
-  const tokens = trimmed.split(/[^a-z0-9åäö]+/).filter(Boolean);
+  if (!trimmed) return { listAll: true, lines: [] as ProductLine[], tokens: [] as string[] };
   const lines = [
     ...new Set(
-      tokens
-        .map(productLineFromToken)
-        .filter((line): line is NonNullable<typeof line> => line !== null),
+      PRODUCT_LINE_PATTERNS.filter(({ pattern }) => pattern.test(trimmed)).map(({ line }) => line),
     ),
   ];
-  if (lines.length > 0) return { listAll: false, lines };
-  const specific = tokens.filter((token) => !GENERIC_PRODUCT_TOKENS.has(token));
-  return { listAll: specific.length === 0, lines };
+  if (lines.length > 0) return { listAll: false, lines, tokens: [] as string[] };
+  const tokens = trimmed
+    .split(/[^a-z0-9åäö]+/)
+    .filter((token) => token.length >= 3 && !GENERIC_PRODUCT_TOKENS.has(token));
+  return { listAll: tokens.length === 0, lines, tokens };
 }
 
 function claimFingerprint(input: Omit<z.infer<typeof claimCreateSchema>, "confirmation_id">) {
@@ -311,11 +340,11 @@ export async function executeRealtimeTool(
           .filter((product) => product.active)
           .filter((product) => {
             if (plan.listAll) return true;
-            if (plan.lines.length > 0) return plan.lines.includes(product.lineOfBusiness);
-            return [product.name, product.lineOfBusiness, ...product.coverages]
+            if (plan.lines.includes(product.lineOfBusiness as ProductLine)) return true;
+            const haystack = [product.name, product.lineOfBusiness, ...product.coverages]
               .join(" ")
-              .toLowerCase()
-              .includes(query);
+              .toLowerCase();
+            return plan.tokens.some((token) => haystack.includes(token));
           })
           .slice(0, 10)
           .map((product) => getProduct({ productId: product.productId })),
