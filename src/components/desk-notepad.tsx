@@ -6,11 +6,13 @@ import { Check, Copy, Download, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { transcriptContentKey, useFollowLatest } from "@/hooks/use-follow-latest";
 import { transcriptAsText } from "@/lib/transcript";
 import type { IntakeCall } from "@/lib/types";
 
 export function DeskNotepad({ call }: { call: IntakeCall | null }) {
   const [copied, setCopied] = useState(false);
+  const viewportRef = useFollowLatest(transcriptContentKey(call?.turns));
 
   async function copyTranscript() {
     if (!call) return;
@@ -76,7 +78,7 @@ export function DeskNotepad({ call }: { call: IntakeCall | null }) {
         <code>POST /api/transcripts</code> for later processing.
       </p>
       <Separator className="bg-stone-300/80" />
-      <ScrollArea className="notepad-body">
+      <ScrollArea className="notepad-body" viewportRef={viewportRef}>
         {call?.turns.length ? (
           <ol className="notepad-turns">
             {call.turns.map((turn) => (
