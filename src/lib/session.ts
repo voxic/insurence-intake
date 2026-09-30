@@ -1,4 +1,5 @@
 import { REALTIME_TOOLS } from "@/lib/live-intake/tool-contracts";
+import { normalizeVoiceId } from "@/lib/voices";
 
 export const AGENT_VOICE = "eve";
 export const REALTIME_MODEL = "grok-voice-latest";
@@ -31,12 +32,12 @@ For every claim, verify_demo_policy first. After an unambiguous caller yes to th
 
 export function buildSessionUpdate(
   instructions = INTAKE_INSTRUCTIONS,
-  options: { pushToTalk?: boolean } = {},
+  options: { pushToTalk?: boolean; voice?: string } = {},
 ) {
   return {
     type: "session.update",
     session: {
-      voice: AGENT_VOICE,
+      voice: normalizeVoiceId(options.voice),
       instructions: `${instructions}\n\n${SERVER_ENFORCED_INTAKE_PROTOCOL}`,
       tools: REALTIME_TOOLS,
       turn_detection: options.pushToTalk

@@ -1,9 +1,12 @@
 import { INTAKE_INSTRUCTIONS } from "@/lib/session";
+import { DEFAULT_VOICE_ID, isVoiceId, normalizeVoiceId } from "@/lib/voices";
 
 export const INSTRUCTIONS_STORAGE_KEY = "acme-intake-instructions";
 export const INSTRUCTIONS_CHANGED_EVENT = "acme-intake-instructions";
 export const PTT_STORAGE_KEY = "acme-intake-ptt";
 export const PTT_CHANGED_EVENT = "acme-intake-ptt";
+export const VOICE_STORAGE_KEY = "acme-intake-voice";
+export const VOICE_CHANGED_EVENT = "acme-intake-voice";
 
 export function loadInstructions(): string {
   if (typeof window === "undefined") {
@@ -75,5 +78,39 @@ export function subscribePushToTalk(listener: () => void) {
   return () => {
     window.removeEventListener("storage", listener);
     window.removeEventListener(PTT_CHANGED_EVENT, listener);
+  };
+}
+
+export function loadVoice(): string {
+  if (typeof window === "undefined") return DEFAULT_VOICE_ID;
+  try {
+    const stored = window.localStorage.getItem(VOICE_STORAGE_KEY)?.trim().toLowerCase();
+    if (stored && isVoiceId(stored)) return stored;
+  } catch {
+    // private mode or blocked storage
+  }
+  return DEFAULT_VOICE_ID;
+}
+
+export function saveVoice(value: string) {
+  const id = normalizeVoiceId(value);
+  if (id === DEFAULT_VOICE_ID && !isVoiceId(value.trim().toLowerCase())) {
+    throw new Error("Unknown voice.");
+  }
+  if (id === DEFAULT_VOICE_ID) {
+    window.localStorage.removeItem(VOICE_STORAGE_KEY);
+  } else {
+    window.localStorage.setItem(VOICE_STORAGE_KEY, id);
+  }
+  window.dispatchEvent(new Event(VOICE_CHANGED_EVENT));
+  return id;
+}
+
+export function subscribeVoice(listener: () => void) {
+  window.addEventListener("storage", listener);
+  window.addEventListener(VOICE_CHANGED_EVENT, listener);
+  return () => {
+    window.removeEventListener("storage", listener);
+    window.removeEventListener(VOICE_CHANGED_EVENT, listener);
   };
 }

@@ -789,6 +789,95 @@ code {
   font-size: 0.88rem;
 }
 
+.settings-voices {
+  margin: 0 0 18px;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+
+.settings-voices .settings-help {
+  margin: 0 0 8px;
+}
+
+.settings-voice-list {
+  max-height: 240px;
+  margin: 8px 0 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+  border: 1px solid #c4ae8f;
+  border-radius: 8px;
+  background: #fffaf0;
+}
+
+.settings-voice {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #eadbc5;
+}
+
+.settings-voice:last-child {
+  border-bottom: 0;
+}
+
+.settings-voice.is-current {
+  background: rgba(31, 111, 98, 0.08);
+}
+
+.settings-voice label {
+  display: flex;
+  flex: 1;
+  gap: 10px;
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.settings-voice input {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  accent-color: #1f6f62;
+}
+
+.settings-voice strong {
+  display: block;
+  color: #2b2118;
+  font-size: 0.92rem;
+}
+
+.settings-voice-meta {
+  display: block;
+  color: #5c4a38;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.settings-voice-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.settings-voice-play {
+  border: 1px solid #c4ae8f;
+  border-radius: 999px;
+  background: #f7edd8;
+  color: #2b2118;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.settings-voice-play:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* The backoffice is the only light surface; re-point the shared badge tokens so outline badges read dark on cream. */
 .backoffice-shell { --foreground: #2b2118; --border: #a98b63; min-height: 100vh; display: grid; grid-template-columns: 240px 1fr; background: #f7eedc; color: #2b2118; }
 .backoffice-nav { display: flex; flex-direction: column; gap: 2rem; padding: 2rem 1.25rem; background: #24180f; color: #f7eedc; }

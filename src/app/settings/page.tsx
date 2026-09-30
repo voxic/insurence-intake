@@ -3,7 +3,7 @@ import { SettingsPanel } from "@/components/settings-panel";
 
 export const metadata: Metadata = {
   title: "Agent settings · Acme Insurance intake",
-  description: "Edit the Eve intake instructions used on the next voice call.",
+  description: "Edit the intake instructions and Grok voice used on the next call.",
 };
 
 export default function SettingsPage() {
@@ -15,7 +15,7 @@ export default function SettingsPage() {
       </div>
       <p className="desk-caption">
         Settings live on this desk, not in the live call. Hang up first if a
-        session is open — the next Call picks up the saved prompt.
+        session is open — the next Call picks up the saved prompt and voice.
       </p>
     </div>
   );

@@ -5,6 +5,7 @@ describe("Realtime session configuration", () => {
   it("includes the server-mediated live intake tools and keeps PTT behavior", () => {
     const session = buildSessionUpdate(undefined, { pushToTalk: true });
 
+    expect(session.session.voice).toBe("eve");
     expect(session.session.turn_detection).toBeNull();
     expect(session.session.tools.map((tool) => tool.name)).toEqual([
       "lookup_demo_product",
