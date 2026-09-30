@@ -6,6 +6,7 @@ import { Mic, MicOff, Phone, PhoneOff, Settings, ShieldCheck } from "lucide-reac
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { transcriptContentKey, useFollowLatest } from "@/hooks/use-follow-latest";
 import type { VoiceCallSnapshot } from "@/lib/realtime-client";
 import { formatCallClock } from "@/lib/utils";
 
@@ -37,6 +38,7 @@ export function IntakeScreen({
   };
 }) {
   const live = snapshot.status === "live";
+  const viewportRef = useFollowLatest(transcriptContentKey(snapshot.call?.turns));
   const busy =
     snapshot.status === "connecting" || snapshot.status === "requesting-mic";
   const canCall = snapshot.status === "idle" || snapshot.status === "ended" || snapshot.status === "error";
@@ -95,7 +97,7 @@ export function IntakeScreen({
         </div>
       </section>
 
-      <ScrollArea className="intake-transcript">
+      <ScrollArea className="intake-transcript" viewportRef={viewportRef}>
         {snapshot.call?.turns.length ? (
           <ol className="intake-turns">
             {snapshot.call.turns.map((turn) => (
