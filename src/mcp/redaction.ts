@@ -15,7 +15,11 @@ export function maskEmail(email: string) {
   const [local, domain] = email.split("@");
   return `${local.slice(0, 1)}***@${domain}`;
 }
-export function maskNumber(number: string) { return `••••${number.slice(-4)}`; }
+export function maskNumber(number: string) {
+  // Last four characters would be the entire 3-digit policy number.
+  const tail = number.length <= 4 ? number.slice(-1) : number.slice(-4);
+  return `••••${tail}`;
+}
 
 function isClaimShape(value: Record<string, unknown>) {
   return "claimId" in value || "claimNumber" in value || ("lossDate" in value && "type" in value);

@@ -20,7 +20,7 @@ describe("demo MCP service", () => {
     const result = await getCustomer({ customerId: "cus_ada" });
     expect(result?.customer).toMatchObject({ name: "Ada H.", phone: "***-***-0101", email: "a***@example.com" });
     expect(JSON.stringify(result)).not.toContain("14 Fictional Lane");
-    expect(JSON.stringify(result)).not.toContain("ACM-A-10001");
+    expect(JSON.stringify(result)).not.toContain("105");
   });
 
   it("requires a customer search identifier and rejects larger requested limits", async () => {

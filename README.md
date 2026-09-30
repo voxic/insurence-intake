@@ -57,7 +57,7 @@ Without `XAI_API_KEY`, the phone still renders. The empty state explains that th
 The desk-phone call now has a small server-mediated bridge over the shared read-only demo MCP and backoffice store:
 
 1. Ask Eve a product or coverage question (for example, “What does Auto Core cover?”). She looks up read-only demo product data and makes clear it is not a quote or binding coverage.
-2. To report a claim, provide a demo policy number such as `ACM-A-10001`. Eve verifies its masked policy/customer details.
+2. To report a claim, provide a three-digit demo policy number such as `105` (or say "one oh five"). Eve verifies its masked policy/customer details.
 3. Eve collects a non-sensitive loss date, type, description, and severity; she reads them back and requires a clear yes before creating a demo claim.
 4. Open `/backoffice/claims` to see the confirmed claim in the same JSON-backed store. The call transcript remains in the desk notepad as the handoff record.
 

@@ -10,7 +10,7 @@ const claimId = z.string().regex(/^clm_[a-z0-9_-]+$/);
 export const searchCustomersInput = z.object({
   name: z.string().trim().min(2).max(80).optional(),
   phoneLast4: z.string().regex(/^\d{4}$/).optional(),
-  policyNumber: z.string().trim().min(4).max(32).optional(),
+  policyNumber: z.string().trim().min(3).max(48).optional(),
   limit,
 }).refine((input) => input.name || input.phoneLast4 || input.policyNumber, {
   message: "Provide a name, phoneLast4, or policyNumber.",

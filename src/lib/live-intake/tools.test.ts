@@ -112,20 +112,37 @@ describe("live intake tool adapter", () => {
 
   it("verifies a policy with masked customer and policy details", async () => {
     const result = await executeRealtimeTool("verify_demo_policy", {
-      policy_number: "ACM-A-10001",
+      policy_number: "105",
     }, { callId });
 
     expect(result).toMatchObject({
-      found: true, policy: expect.objectContaining({ policy_number: "••••0001", customer: "Ada H." }),
+      found: true, policy: expect.objectContaining({ policy_number: "••••5", customer: "Ada H." }),
     });
-    expect(JSON.stringify(result)).not.toContain("ACM-A-10001");
+    expect(JSON.stringify(result)).not.toContain("105");
     expect(JSON.stringify(result)).not.toContain("@example.com");
+  });
+
+  it("verifies spoken digits and a natural reading without the old prefix", async () => {
+    for (const policy_number of ["one zero five", "one oh five", "one hundred five", "one hundred and five"]) {
+      const result = await executeRealtimeTool("verify_demo_policy", { policy_number }, { callId });
+      expect(result, policy_number).toMatchObject({
+        found: true, policy: expect.objectContaining({ policy_number: "••••5", customer: "Ada H." }),
+      });
+    }
+
+    const grouped = await executeRealtimeTool("verify_demo_policy", { policy_number: "one forty two" }, { callId });
+    expect(grouped).toMatchObject({
+      found: true, policy: expect.objectContaining({ customer: "Ben O." }),
+    });
+
+    const prefixed = await executeRealtimeTool("verify_demo_policy", { policy_number: "ACM-A-10001" }, { callId });
+    expect(prefixed).toMatchObject({ found: false });
   });
 
   it("rejects a browser-style confirmed flag without server call state", async () => {
     const before = (await getState()).claims.length;
     const result = await executeRealtimeTool("create_confirmed_demo_claim", {
-      policy_number: "ACM-A-10001",
+      policy_number: "105",
       loss_date: "2026-09-20",
       claim_type: "Windshield damage",
       description: "A fictional chipped windshield.",
@@ -140,13 +157,13 @@ describe("live intake tool adapter", () => {
   it("creates only after verifying and recording an explicit call confirmation", async () => {
     const before = (await getState()).claims.length;
     const details = {
-      policy_number: "ACM-A-10001",
+      policy_number: "105",
       loss_date: "2026-09-20",
       claim_type: "Windshield damage",
       description: "A fictional chipped windshield.",
       severity: "low",
     };
-    await executeRealtimeTool("verify_demo_policy", { policy_number: details.policy_number }, { callId });
+    await executeRealtimeTool("verify_demo_policy", { policy_number: "one oh five" }, { callId });
     const confirmation = await executeRealtimeTool("confirm_demo_claim", details, { callId });
     const confirmationId = confirmation.confirmation_id;
     expect(typeof confirmationId).toBe("string");
@@ -164,7 +181,7 @@ describe("live intake tool adapter", () => {
     const inactive = await executeRealtimeTool(
       "confirm_demo_claim",
       {
-        policy_number: "ACM-A-10006",
+        policy_number: "five three one",
         loss_date: "2026-09-20",
         claim_type: "Windshield damage",
         description: "A fictional chipped windshield.",
@@ -174,11 +191,11 @@ describe("live intake tool adapter", () => {
     );
     expect(inactive).toMatchObject({ confirmed: false });
 
-    await executeRealtimeTool("verify_demo_policy", { policy_number: "ACM-A-10001" }, { callId });
+    await executeRealtimeTool("verify_demo_policy", { policy_number: "one zero five" }, { callId });
     const sensitive = await executeRealtimeTool(
       "confirm_demo_claim",
       {
-        policy_number: "ACM-A-10001",
+        policy_number: "105",
         loss_date: "2026-09-20",
         claim_type: "Windshield damage",
         description: "My SSN is 123-45-6789.",

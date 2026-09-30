@@ -16,7 +16,7 @@ describe("backoffice view model", () => {
       expect(row.premium).toBeGreaterThan(0);
       expect(row.effectiveDate < row.expirationDate).toBe(true);
     }
-    const ada = rows.find((row) => row.number === "ACM-A-10001");
+    const ada = rows.find((row) => row.number === "105");
     expect(ada).toMatchObject({ customerName: "Ada Hart", productName: "Auto Core", status: "active", premium: 1200 });
   });
 

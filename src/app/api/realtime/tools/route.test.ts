@@ -11,13 +11,13 @@ describe("live intake tool gateway", () => {
     const response = await POST(
       new Request("http://localhost/api/realtime/tools", {
         method: "POST",
-        body: JSON.stringify({ name: "verify_demo_policy", arguments: { policy_number: "ACM-A-10001" } }),
+        body: JSON.stringify({ name: "verify_demo_policy", arguments: { policy_number: "one hundred five" } }),
       }),
     );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
-      output: { found: true, policy: { policy_number: "••••0001" } },
+      output: { found: true, policy: { policy_number: "••••5" } },
     });
   });
 
@@ -29,7 +29,7 @@ describe("live intake tool gateway", () => {
         body: JSON.stringify({
           name: "create_confirmed_demo_claim",
           arguments: {
-            policy_number: "ACM-A-10001",
+            policy_number: "105",
             loss_date: "2026-09-20",
             claim_type: "Windshield damage",
             description: "A fictional chipped windshield.",
