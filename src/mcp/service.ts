@@ -1,4 +1,5 @@
 import { getState } from "@/lib/backoffice/repository";
+import { normalizeSpokenPolicyNumber } from "@/lib/policy-number";
 import type { Claim, Customer, Product } from "@/lib/backoffice/types";
 import { maskEmail, maskName, maskNumber, maskPhone, redact } from "./redaction";
 import {
@@ -40,8 +41,9 @@ function claimCard(claim: Claim) {
 export async function searchCustomers(input: unknown) {
   const { name, phoneLast4, policyNumber, limit } = searchCustomersInput.parse(input);
   const state = await getState();
+  const wantedPolicy = policyNumber ? normalizeSpokenPolicyNumber(policyNumber) : null;
   const policyCustomers = new Set(state.policies
-    .filter((policy) => !policyNumber || policy.number.toLowerCase().includes(policyNumber.toLowerCase()))
+    .filter((policy) => !policyNumber || (wantedPolicy !== null && normalizeSpokenPolicyNumber(policy.number) === wantedPolicy))
     .map((policy) => policy.customerId));
   const result = sortById(state.customers).filter((customer) =>
     (!name || customer.name.toLowerCase().includes(name.toLowerCase()))

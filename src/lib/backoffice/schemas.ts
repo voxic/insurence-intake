@@ -94,7 +94,7 @@ export const policyCreateSchema = z
   .object({
     customerId: idSchema,
     productId: idSchema,
-    number: z.string().min(4).max(32),
+    number: z.string().regex(/^[1-9]\d{2}$/),
     status: z.enum(["active", "expired", "cancelled"]).default("active"),
     effectiveDate: z.iso.date(),
     expirationDate: z.iso.date(),

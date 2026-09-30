@@ -21,10 +21,10 @@ export const REALTIME_TOOLS = [
     type: "function",
     name: "verify_demo_policy",
     description:
-      "Verify a caller-provided demo policy number and return masked customer and coverage details. Never ask for or return sensitive data.",
+      "Verify a caller-provided three-digit demo policy number and return masked customer and coverage details. Accept digits (105), spoken digits (one zero five), or a natural reading (one oh five, one hundred five). Do not require a letter prefix. Never ask for or return sensitive data.",
     parameters: {
       type: "object",
-      properties: { policy_number: { type: "string", description: "The policy number provided by the caller." } },
+      properties: { policy_number: { type: "string", description: "Three-digit policy number as digits or spoken words, such as 105, one zero five, or one oh five." } },
       required: ["policy_number"],
       additionalProperties: false,
     },

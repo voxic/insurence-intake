@@ -14,5 +14,7 @@ describe("Realtime session configuration", () => {
       "create_confirmed_demo_claim",
     ]);
     expect(session.session.tools[3]?.parameters.properties.confirmation_id).toBeDefined();
+    expect(session.session.instructions).toContain("three-digit policy number");
+    expect(session.session.tools[1]?.description).toContain("one oh five");
   });
 });

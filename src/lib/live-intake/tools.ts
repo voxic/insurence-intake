@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createClaim, getState } from "@/lib/backoffice/repository";
 import { claimCreateSchema as backofficeClaimCreateSchema } from "@/lib/backoffice/schemas";
 import type { Claim, Policy, Product } from "@/lib/backoffice/types";
+import { normalizeSpokenPolicyNumber } from "@/lib/policy-number";
 import { getCustomer, searchCustomers } from "@/mcp/service";
 import { maskNumber } from "@/mcp/redaction";
 import {
@@ -16,11 +17,11 @@ const productLookupSchema = z
   .object({ query: z.string().trim().max(80).optional().default("") })
   .strict();
 const policyVerificationSchema = z
-  .object({ policy_number: z.string().trim().min(4).max(32) })
+  .object({ policy_number: z.string().trim().min(3).max(48) })
   .strict();
 const claimCreateSchema = z
   .object({
-    policy_number: z.string().trim().min(4).max(32),
+    policy_number: z.string().trim().min(3).max(48),
     loss_date: z.iso.date(),
     claim_type: z.string().trim().min(2).max(80),
     description: z.string().trim().min(4).max(500),
@@ -44,19 +45,23 @@ function policyDetails(policy: Policy, customer: string | null) {
 }
 
 async function findPolicy(number: string) {
+  const canonical = normalizeSpokenPolicyNumber(number);
+  if (!canonical) return null;
   const policy = (await getState()).policies.find(
-    (candidate) => candidate.number.toLowerCase() === number.toLowerCase(),
+    (candidate) => normalizeSpokenPolicyNumber(candidate.number) === canonical,
   );
   return policy ? { policy } : null;
 }
 
 async function verifyPolicyWithMcp(number: string) {
-  const matches = (await searchCustomers({ policyNumber: number, limit: 1 })) as {
+  const canonical = normalizeSpokenPolicyNumber(number);
+  if (!canonical) return null;
+  const matches = (await searchCustomers({ policyNumber: canonical, limit: 1 })) as {
     customers: Array<{ customerId: string; name: string }>;
   };
   const customer = matches.customers[0];
   if (!customer) return null;
-  const local = await findPolicy(number);
+  const local = await findPolicy(canonical);
   if (!local) return null;
   const profile = (await getCustomer({ customerId: customer.customerId })) as {
     policies: Array<{ coverage: string; deductible: number; status: string; policyId: string }>;
@@ -185,7 +190,7 @@ function toCallerProduct(product: Product) {
 function claimFingerprint(input: Omit<z.infer<typeof claimCreateSchema>, "confirmation_id">) {
   return JSON.stringify({
     ...input,
-    policy_number: input.policy_number.toLowerCase(),
+    policy_number: normalizeSpokenPolicyNumber(input.policy_number) ?? input.policy_number.toLowerCase(),
     description: input.description.trim(),
   });
 }
@@ -223,7 +228,7 @@ async function createDemoClaim(
   if (result.policy.status !== "active") {
     return { created: false, error: "That demo policy is not active and cannot accept a claim." };
   }
-  if (!hasVerifiedPolicy(context.callId, input.policy_number, result.policy.id)) {
+  if (!hasVerifiedPolicy(context.callId, result.policy.number, result.policy.id)) {
     return { created: false, error: "Verify this policy in the current live call before creating a claim." };
   }
   if (!isLossDateCovered(result.policy, input.loss_date)) {
@@ -309,7 +314,7 @@ export async function executeRealtimeTool(
     if (!parsed.success) return { found: false, error: "A policy number is required." };
     const result = await verifyPolicyWithMcp(parsed.data.policy_number);
     if (result && context.callId) {
-      recordVerifiedPolicy(context.callId, parsed.data.policy_number, result.policy.id);
+      recordVerifiedPolicy(context.callId, result.policy.number, result.policy.id);
     }
     return result
       ? { found: true, policy: policyDetails(result.policy, result.customer) }
@@ -328,7 +333,7 @@ export async function executeRealtimeTool(
     if (
       !result ||
       result.policy.status !== "active" ||
-      !hasVerifiedPolicy(context.callId, parsed.data.policy_number, result.policy.id) ||
+      !hasVerifiedPolicy(context.callId, result.policy.number, result.policy.id) ||
       !isLossDateCovered(result.policy, parsed.data.loss_date) ||
       !hasSafeClaimDetails(result.policy, parsed.data)
     ) {

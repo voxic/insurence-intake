@@ -39,4 +39,15 @@ describe("backoffice seed", () => {
     }
     expect(seed.products.filter((product) => product.line === "auto" && product.active)).toHaveLength(3);
   });
+
+  it("uses a unique three-digit policy number on every policy", () => {
+    const numbers = seed.policies.map((policy) => policy.number);
+    expect(new Set(numbers).size).toBe(numbers.length);
+    for (const number of numbers) {
+      expect(number).toMatch(/^[1-9]\d{2}$/);
+      expect(Number(number)).toBeGreaterThanOrEqual(100);
+      expect(Number(number)).toBeLessThanOrEqual(999);
+    }
+    expect(numbers).toEqual(["105", "142", "207", "318", "426", "531", "640"]);
+  });
 });

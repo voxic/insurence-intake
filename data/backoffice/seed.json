@@ -38,13 +38,13 @@
     {"id":"prc_accident_v1","productId":"prd_accident","version":1,"active":true,"effectiveDate":"2026-01-01","basePremium":220,"minPremium":120,"maxPremium":480,"factors":{"standard":1,"preferred":0.9,"highRisk":1.3}}
   ],
   "policies": [
-    {"id":"pol_ada","customerId":"cus_ada","productId":"prd_auto","number":"ACM-A-10001","status":"active","effectiveDate":"2026-01-01","expirationDate":"2026-12-31","coverage":"Comprehensive","deductible":500,"premium":1200,"priceVersion":3},
-    {"id":"pol_ben","customerId":"cus_ben","productId":"prd_home","number":"ACM-H-10002","status":"active","effectiveDate":"2026-02-01","expirationDate":"2027-01-31","coverage":"Dwelling","deductible":1000,"premium":882,"priceVersion":2},
-    {"id":"pol_drew","customerId":"cus_drew","productId":"prd_rent","number":"ACM-R-10003","status":"active","effectiveDate":"2026-03-01","expirationDate":"2027-02-28","coverage":"Personal property","deductible":250,"premium":240,"priceVersion":1},
-    {"id":"pol_finn","customerId":"cus_finn","productId":"prd_auto","number":"ACM-A-10004","status":"active","effectiveDate":"2026-01-15","expirationDate":"2027-01-14","coverage":"Collision","deductible":1000,"premium":1560,"priceVersion":3},
-    {"id":"pol_gia","customerId":"cus_gia","productId":"prd_home","number":"ACM-H-10005","status":"active","effectiveDate":"2026-03-01","expirationDate":"2027-02-28","coverage":"Personal property","deductible":500,"premium":980,"priceVersion":2},
-    {"id":"pol_ivy","customerId":"cus_ivy","productId":"prd_auto","number":"ACM-A-10006","status":"expired","effectiveDate":"2025-03-01","expirationDate":"2026-02-28","coverage":"Liability","deductible":500,"premium":1020,"priceVersion":3},
-    {"id":"pol_jules","customerId":"cus_jules","productId":"prd_rent","number":"ACM-R-10007","status":"active","effectiveDate":"2026-03-14","expirationDate":"2027-03-13","coverage":"Liability","deductible":500,"premium":216,"priceVersion":1}
+    {"id":"pol_ada","customerId":"cus_ada","productId":"prd_auto","number":"105","status":"active","effectiveDate":"2026-01-01","expirationDate":"2026-12-31","coverage":"Comprehensive","deductible":500,"premium":1200,"priceVersion":3},
+    {"id":"pol_ben","customerId":"cus_ben","productId":"prd_home","number":"142","status":"active","effectiveDate":"2026-02-01","expirationDate":"2027-01-31","coverage":"Dwelling","deductible":1000,"premium":882,"priceVersion":2},
+    {"id":"pol_drew","customerId":"cus_drew","productId":"prd_rent","number":"207","status":"active","effectiveDate":"2026-03-01","expirationDate":"2027-02-28","coverage":"Personal property","deductible":250,"premium":240,"priceVersion":1},
+    {"id":"pol_finn","customerId":"cus_finn","productId":"prd_auto","number":"318","status":"active","effectiveDate":"2026-01-15","expirationDate":"2027-01-14","coverage":"Collision","deductible":1000,"premium":1560,"priceVersion":3},
+    {"id":"pol_gia","customerId":"cus_gia","productId":"prd_home","number":"426","status":"active","effectiveDate":"2026-03-01","expirationDate":"2027-02-28","coverage":"Personal property","deductible":500,"premium":980,"priceVersion":2},
+    {"id":"pol_ivy","customerId":"cus_ivy","productId":"prd_auto","number":"531","status":"expired","effectiveDate":"2025-03-01","expirationDate":"2026-02-28","coverage":"Liability","deductible":500,"premium":1020,"priceVersion":3},
+    {"id":"pol_jules","customerId":"cus_jules","productId":"prd_rent","number":"640","status":"active","effectiveDate":"2026-03-14","expirationDate":"2027-03-13","coverage":"Liability","deductible":500,"premium":216,"priceVersion":1}
   ],
   "claims": [
     {"id":"clm_ada","number":"CLM-26001","customerId":"cus_ada","policyId":"pol_ada","lossDate":"2026-03-15","reportedDate":"2026-03-16","type":"Windshield damage","description":"Fictional chipped windshield report.","severity":"low","status":"reviewing","owner":"M. Vega","reserve":450,"paidAmount":0,"createdAt":"2026-03-16T10:00:00.000Z","updatedAt":"2026-03-16T10:00:00.000Z","events":[{"id":"evt_1","timestamp":"2026-03-16T10:00:00.000Z","actor":"M. Vega","type":"note","note":"Demo claim received."}]},
