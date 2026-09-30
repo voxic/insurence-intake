@@ -44,7 +44,7 @@ Optional: `SESSION_RATE_LIMIT` (default `10`) and `SESSION_RATE_WINDOW_MS` (defa
 1. Tap **Call** on the phone. The browser asks for the microphone.
 2. The app `POST`s `/api/session`. That route calls xAI with `XAI_API_KEY` and returns a short-lived token (`value`, ~300 seconds).
 3. The browser opens `wss://api.x.ai/v1/realtime?model=grok-voice-latest` using the documented client protocol: `xai-client-secret.<token>`.
-4. The client sends `session.update` with voice `eve`, intake instructions, `turn_detection: { type: "server_vad" }`, 24 kHz PCM, and `audio.input.transcription.model: "grok-transcribe"`.
+4. The client sends `session.update` with the saved Grok voice (default `eve`, `localStorage` key `acme-intake-voice`), intake instructions, `turn_detection: { type: "server_vad" }`, 24 kHz PCM, and `audio.input.transcription.model: "grok-transcribe"`.
 5. Mic PCM is streamed as `input_audio_buffer.append`. Agent audio arrives as `response.output_audio.delta` and is played immediately.
 6. After `session.updated`, the client sends `response.create` so Eve greets first.
 
@@ -65,7 +65,7 @@ The browser has neither MCP credentials nor direct MCP access. It forwards Realt
 
 ## Settings
 
-Open **Settings** from the gear on the phone or the notepad chip, or go to `/settings`. Edit Eve’s system prompt, **Save**, or **Reset to default**. The text is stored in `localStorage` (`acme-intake-instructions`) and sent on the next Call as `session.update.session.instructions`. A live call is not rewritten mid-session.
+Open **Settings** from the gear on the phone or the notepad chip, or go to `/settings`. Edit Eve’s system prompt, **Save**, or **Reset to default**. The text is stored in `localStorage` (`acme-intake-instructions`) and sent on the next Call as `session.update.session.instructions`. Pick a Grok voice in the same panel. The choice is stored in `localStorage` (`acme-intake-voice`) and sent as `session.update.session.voice` on the next Call. Eve, Ara, Rex, Sal, and Leo have published samples that play without a key. Other samples, including Swedish, are synthesized by `GET /api/voices/preview` with the server-side `XAI_API_KEY`. A live call is not rewritten mid-session.
 
 ## Transcript storage
 

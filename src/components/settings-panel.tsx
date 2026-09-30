@@ -5,16 +5,21 @@ import Link from "next/link";
 import { ArrowLeft, RotateCcw, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { VoicePicker } from "@/components/voice-picker";
 import {
   loadInstructions,
   loadPushToTalk,
+  loadVoice,
   resetInstructions,
   saveInstructions,
   savePushToTalk,
+  saveVoice,
   subscribeInstructions,
   subscribePushToTalk,
+  subscribeVoice,
 } from "@/lib/agent-settings";
 import { INTAKE_INSTRUCTIONS } from "@/lib/session";
+import { DEFAULT_VOICE_ID, voiceName } from "@/lib/voices";
 
 export function SettingsPanel() {
   const saved = useSyncExternalStore(
@@ -28,6 +33,7 @@ export function SettingsPanel() {
     loadPushToTalk,
     () => false,
   );
+  const voiceId = useSyncExternalStore(subscribeVoice, loadVoice, () => DEFAULT_VOICE_ID);
   const [status, setStatus] = useState<"idle" | "saved" | "reset" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const value = draft ?? saved;
@@ -62,7 +68,7 @@ export function SettingsPanel() {
       <div className="settings-body">
         <header className="settings-header">
           <div>
-            <p className="notepad-kicker">Eve · session.update</p>
+            <p className="notepad-kicker">{voiceName(voiceId)} · session.update</p>
             <h1>Agent instructions</h1>
           </div>
           <Button asChild variant="outline" size="sm" className="notepad-chip">
@@ -73,10 +79,21 @@ export function SettingsPanel() {
           </Button>
         </header>
         <p className="settings-help">
-          This prompt is sent on the next Call in <code>session.update</code>.
-          Edits stay in this browser under <code>acme-intake-instructions</code>.
-          The API key never appears here.
+          The prompt and voice are sent on the next Call in <code>session.update</code>.
+          Edits stay in this browser under <code>acme-intake-instructions</code> and{" "}
+          <code>acme-intake-voice</code>. The API key never appears here.
         </p>
+        <VoicePicker
+          voiceId={voiceId}
+          onSelect={(id) => {
+            try {
+              saveVoice(id);
+            } catch (cause) {
+              setStatus("error");
+              setError(cause instanceof Error ? cause.message : "Could not save that voice.");
+            }
+          }}
+        />
         <label className="settings-label" htmlFor="agent-instructions">
           System prompt
         </label>
