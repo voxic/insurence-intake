@@ -5,6 +5,7 @@ import type { Claim, Policy, Product } from "@/lib/backoffice/types";
 import { normalizeSpokenPolicyNumber } from "@/lib/policy-number";
 import { getCustomer, searchCustomers } from "@/mcp/service";
 import { maskNumber } from "@/mcp/redaction";
+import { matchProducts } from "./product-search";
 import {
   consumeConfirmation,
   hasVerifiedPolicy,
@@ -14,7 +15,7 @@ import {
 export { REALTIME_TOOLS } from "./tool-contracts";
 
 const productLookupSchema = z
-  .object({ query: z.string().trim().max(80).optional().default("") })
+  .object({ query: z.string().trim().max(240).optional().default("") })
   .strict();
 const policyVerificationSchema = z
   .object({ policy_number: z.string().trim().min(3).max(48) })
@@ -69,105 +70,6 @@ async function verifyPolicyWithMcp(number: string) {
   const policy = profile.policies.find((item) => item.policyId === local.policy.id);
   if (!policy) return null;
   return { customer: customer.name, policy: local.policy };
-}
-
-// Filler around a catalog question. Category words live on each product in the seed.
-const GENERIC_PRODUCT_TOKENS = new Set([
-  "a",
-  "acme",
-  "all",
-  "alla",
-  "an",
-  "any",
-  "are",
-  "av",
-  "available",
-  "catalog",
-  "catalogue",
-  "demo",
-  "det",
-  "do",
-  "en",
-  "era",
-  "ett",
-  "exist",
-  "exists",
-  "finns",
-  "for",
-  "för",
-  "försäkring",
-  "försäkringar",
-  "försäkringstyp",
-  "försäkringstyper",
-  "har",
-  "have",
-  "insurance",
-  "is",
-  "just",
-  "katalog",
-  "kind",
-  "kinds",
-  "list",
-  "lista",
-  "ni",
-  "now",
-  "nu",
-  "och",
-  "of",
-  "olika",
-  "our",
-  "product",
-  "products",
-  "produkt",
-  "produkter",
-  "som",
-  "specific",
-  "specifika",
-  "the",
-  "there",
-  "typ",
-  "type",
-  "types",
-  "typer",
-  "vad",
-  "vilka",
-  "vilken",
-  "vilket",
-  "våra",
-  "what",
-  "which",
-  "you",
-  "your",
-]);
-
-function catalogPhrases(product: Product) {
-  return [product.name, product.line, ...product.coverages, ...(product.aliases?.en ?? []), ...(product.aliases?.sv ?? [])]
-    .map((value) => value.trim().toLowerCase())
-    .filter((value) => value.length >= 3);
-}
-
-function includesPhrase(query: string, phrase: string) {
-  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(?:^|[^a-z0-9åäö])${escaped}(?=$|[^a-z0-9åäö])`, "u").test(query);
-}
-
-function isGenericCatalogQuery(query: string) {
-  const tokens = query.toLowerCase().split(/[^a-z0-9åäö]+/).filter(Boolean);
-  return tokens.length === 0 || tokens.every((token) => GENERIC_PRODUCT_TOKENS.has(token));
-}
-
-function matchingProducts(products: Product[], query: string) {
-  if (isGenericCatalogQuery(query)) return products;
-  const hits = products
-    .map((product) => ({
-      product,
-      phrases: catalogPhrases(product).filter((phrase) => includesPhrase(query, phrase)),
-    }))
-    .filter((hit) => hit.phrases.length > 0);
-  const longest = Math.max(0, ...hits.flatMap((hit) => hit.phrases.map((phrase) => phrase.length)));
-  return hits
-    .filter((hit) => hit.phrases.some((phrase) => phrase.length === longest))
-    .map((hit) => hit.product);
 }
 
 function spokenSwedishName(product: Product) {
@@ -297,9 +199,8 @@ export async function executeRealtimeTool(
   if (name === "lookup_demo_product") {
     const parsed = productLookupSchema.safeParse(input);
     if (!parsed.success) return { error: "A product search query is required." };
-    const query = parsed.data.query.toLowerCase();
     const catalog = (await getState()).products.filter((product) => product.active);
-    const matches = matchingProducts(catalog, query)
+    const matches = matchProducts(catalog, parsed.data.query)
       .sort((a, b) => a.name.localeCompare(b.name))
       .slice(0, 20)
       .map(toCallerProduct);

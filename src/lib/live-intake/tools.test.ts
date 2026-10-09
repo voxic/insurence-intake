@@ -76,6 +76,77 @@ describe("live intake tool adapter", () => {
     }
   });
 
+  it("matches a natural sentence about a cat or dog in either language", async () => {
+    const sentences = [
+      "insurance for a cat",
+      "I would like insurance for my cat",
+      "försäkring för en katt",
+      "kattförsäkring",
+      "jag vill försäkra min katt",
+      "dog insurance",
+      "do you have anything for dogs",
+      "hundförsäkring",
+      "försäkring för min hund",
+      "a kitten and a puppy",
+      "husdjur",
+    ];
+    for (const query of sentences) {
+      expect(productNames(await executeRealtimeTool("lookup_demo_product", { query })), query).toEqual(["Pet Plus"]);
+    }
+  });
+
+  it("matches natural sentences for the other lines", async () => {
+    const cases: Array<[string, string[]]> = [
+      ["insurance for my house", ["Villa Cover"]],
+      ["försäkring för mitt hus", ["Villa Cover"]],
+      ["jag behöver försäkra bilen", ["Auto Core", "Auto Full", "Auto Partial"]],
+      ["insure my car", ["Auto Core", "Auto Full", "Auto Partial"]],
+      ["vi ska ut och resa", ["Trip Cover"]],
+      ["cover for a vacation abroad", ["Trip Cover"]],
+      ["jag hyr en lägenhet", ["Home Plus"]],
+      ["hyresrätt", ["Rent Easy"]],
+    ];
+    for (const [query, names] of cases) {
+      expect(productNames(await executeRealtimeTool("lookup_demo_product", { query })), query).toEqual(names);
+    }
+  });
+
+  it("returns every matching line when a sentence names several", async () => {
+    const result = await executeRealtimeTool("lookup_demo_product", { query: "home and car insurance" });
+
+    expect(productNames(result)).toEqual(["Auto Core", "Auto Full", "Auto Partial", "Home Plus"]);
+  });
+
+  it("still misses a product the catalog does not have", async () => {
+    for (const query of ["insurance for my boat", "båtförsäkring", "do you insure drones"]) {
+      expect(productNames(await executeRealtimeTool("lookup_demo_product", { query })), query).toEqual([]);
+    }
+  });
+
+  it("lists every active product for a generic English catalog question", async () => {
+    for (const query of ["what do you offer", "what kinds of insurance can I get", "vad erbjuder ni"]) {
+      expect(productNames(await executeRealtimeTool("lookup_demo_product", { query })), query).toEqual(activeCatalog);
+    }
+  });
+
+  it("searches an alias added at runtime without a reseed", async () => {
+    expect(productNames(await executeRealtimeTool("lookup_demo_product", { query: "insurance for my hamster" }))).toEqual([]);
+
+    const pet = (await getState()).products.find((product) => product.id === "prd_pet_plus")!;
+    await updateProduct("prd_pet_plus", {
+      aliases: { en: [...pet.aliases!.en, "hamster"], sv: [...pet.aliases!.sv, "marsvin"] },
+    });
+
+    expect(productNames(await executeRealtimeTool("lookup_demo_product", { query: "insurance for my hamster" }))).toEqual(["Pet Plus"]);
+    expect(productNames(await executeRealtimeTool("lookup_demo_product", { query: "marsvinsförsäkring" }))).toEqual(["Pet Plus"]);
+  });
+
+  it("falls back to description words when no alias matches", async () => {
+    await updateProduct("prd_pet_plus", { description: "Demo pet cover for fictional dogs, cats, and parrots." });
+
+    expect(productNames(await executeRealtimeTool("lookup_demo_product", { query: "do you cover parrots" }))).toEqual(["Pet Plus"]);
+  });
+
   it("returns spoken coverages, deductibles, and the demo annual range", async () => {
     const result = await executeRealtimeTool("lookup_demo_product", { query: "hemförsäkring" });
 

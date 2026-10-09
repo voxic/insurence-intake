@@ -62,6 +62,8 @@ The desk-phone call has a small server-mediated bridge over the shared in-memory
 4. Open `/backoffice/claims` to see the confirmed claim in the same in-memory store. The call transcript remains in the desk notepad as the handoff record.
 5. Edit a product or policy in `/backoffice` (or over MCP) and ask Eve again: the next lookup reads the edited record without a redeploy.
 
+Product lookup (`src/lib/live-intake/product-search.ts`) matches the caller's words, not the whole utterance: a product matches when its name, line, coverage, or an English/Swedish alias from `seed.json` appears as whole words in the sentence (plurals, Swedish definite forms, and `-försäkring` compounds such as `kattförsäkring` count). Description words are a fallback when nothing else matches. A generic "what do you offer" returns every active product; a sentence naming several lines returns all of them. New vocabulary goes in the product's `aliases` in `seed.json`.
+
 The browser has neither MCP credentials nor direct MCP access. It forwards Realtime function calls to a narrowly scoped server route; that route uses the shared MCP service for product/policy lookup, validates inputs, and writes only confirmed demo claims. The tool bridge returns no unmasked contact data, and the caller cannot change products or policies.
 
 ## Settings
