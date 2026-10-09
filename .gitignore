@@ -36,7 +36,6 @@ yarn-error.log*
 
 # local transcript handoff files
 /data/transcripts
-/data/backoffice/state.json
 
 # scratch from docs fetches
 /agent-tools

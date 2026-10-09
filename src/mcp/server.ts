@@ -7,8 +7,14 @@ import {
   getProduct,
   listProducts,
   readResource,
+  reseedDemoData,
   searchClaims,
   searchCustomers,
+  updateDemoClaim,
+  updateDemoCustomer,
+  updateDemoPolicy,
+  updateDemoPricingRule,
+  updateDemoProduct,
 } from "./service";
 import {
   getClaimInput,
@@ -16,11 +22,19 @@ import {
   getProductInput,
   listProductsInput,
   priceIndicationInput,
+  reseedInput,
   searchClaimsInput,
   searchCustomersInput,
+  updateClaimInput,
+  updateCustomerInput,
+  updatePolicyInput,
+  updatePricingRuleInput,
+  updateProductInput,
 } from "./schemas";
 
 const readOnly = { readOnlyHint: true };
+const edits = { readOnlyHint: false, destructiveHint: false, idempotentHint: true };
+const wipes = { readOnlyHint: false, destructiveHint: true, idempotentHint: true };
 const unavailable = { content: [{ type: "text" as const, text: "No matching demo record was found." }], isError: true };
 const result = (value: Record<string, unknown>) => ({
   content: [{ type: "text" as const, text: (value as { summary?: string }).summary ?? "Demo data retrieved." }],
@@ -37,6 +51,8 @@ function tool<T>(operation: (input: T) => Promise<unknown>) {
 export const mcpToolNames = [
   "search_demo_customers", "get_demo_customer", "list_demo_products", "get_demo_product",
   "get_demo_price_indication", "search_demo_claims", "get_demo_claim_status",
+  "update_demo_customer", "update_demo_product", "update_demo_policy", "update_demo_pricing_rule",
+  "update_demo_claim", "reseed_demo_data",
 ] as const;
 
 export function createMcpServer() {
@@ -69,6 +85,33 @@ export function createMcpServer() {
     title: "Get demo claim status", description: "Get a synthetic claim status after supplying its customer ID.",
     inputSchema: getClaimInput, annotations: readOnly,
   }, tool(getClaim));
+
+  // Edits change the shared in-memory demo store that the backoffice UI and the voice
+  // bridge read. They are never written to disk and vanish on restart.
+  server.registerTool("update_demo_customer", {
+    title: "Update demo customer", description: "Change a synthetic customer's name, contact details, or status in the in-memory demo store.",
+    inputSchema: updateCustomerInput, annotations: edits,
+  }, tool(updateDemoCustomer));
+  server.registerTool("update_demo_product", {
+    title: "Update demo product", description: "Change a synthetic product's name, description, coverages, deductibles, or active flag in the in-memory demo store.",
+    inputSchema: updateProductInput, annotations: edits,
+  }, tool(updateDemoProduct));
+  server.registerTool("update_demo_policy", {
+    title: "Update demo policy", description: "Change a synthetic policy's status, coverage, deductible, premium, or term in the in-memory demo store.",
+    inputSchema: updatePolicyInput, annotations: edits,
+  }, tool(updateDemoPolicy));
+  server.registerTool("update_demo_pricing_rule", {
+    title: "Update demo pricing rule", description: "Change a synthetic pricing rule's premiums, factors, or active flag in the in-memory demo store.",
+    inputSchema: updatePricingRuleInput, annotations: edits,
+  }, tool(updateDemoPricingRule));
+  server.registerTool("update_demo_claim", {
+    title: "Update demo claim", description: "Move a synthetic claim forward (reported → reviewing → approved → closed) or change its owner or reserve. Requires the claim's customer ID.",
+    inputSchema: updateClaimInput, annotations: edits,
+  }, tool(updateDemoClaim));
+  server.registerTool("reseed_demo_data", {
+    title: "Reseed demo data", description: "Discard every runtime edit and reload data/backoffice/seed.json into memory.",
+    inputSchema: reseedInput, annotations: wipes,
+  }, tool(reseedDemoData));
 
   for (const [name, uri, description] of [
     ["demo-catalog", "insurance://demo/catalog", "Compact synthetic product catalog."],

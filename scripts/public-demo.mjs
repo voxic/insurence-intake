@@ -29,8 +29,8 @@ const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const bin = (name) => path.join(root, "node_modules", ".bin", name);
 const publicPort = Number(process.env.PORT ?? 8080);
 const nextPort = Number(process.env.NEXT_INTERNAL_PORT ?? 4317);
-const mcpPort = Number(process.env.MCP_PORT ?? 4318);
-// Shared JSON/transcript root. Both Next and MCP must resolve the same volume.
+// Transcript root. Backoffice data is in memory inside the Next process and is
+// reseeded from data/backoffice/seed.json on every start.
 const dataDir = process.env.DATA_DIR ?? path.join(root, "data");
 
 function spawnChild(command, args, extraEnv = {}) {
@@ -46,12 +46,9 @@ function spawnChild(command, args, extraEnv = {}) {
   return child;
 }
 
+// One process serves the desk phone, the backoffice, and MCP at /mcp, so every
+// surface reads and writes the same in-memory store.
 const next = spawnChild(bin("next"), ["start", "--hostname", "127.0.0.1", "--port", String(nextPort)], {
-  DATA_DIR: dataDir,
-});
-const mcp = spawnChild(bin("tsx"), ["src/mcp/http.ts"], {
-  MCP_HOST: "127.0.0.1",
-  MCP_PORT: String(mcpPort),
   DATA_DIR: dataDir,
 });
 
@@ -82,19 +79,14 @@ const server = createServer((req, res) => {
     res.writeHead(200, { "content-type": "text/plain" }).end("ok");
     return;
   }
-  // MCP bearer auth is enforced by the MCP server itself.
-  if (pathname === "/mcp") {
-    proxy(req, res, mcpPort);
-    return;
-  }
-  // Everything else is the public demo app (synthetic data). /api/session is
-  // guarded inside Next via SESSION_ACCESS_TOKEN / rate limit.
+  // Everything else, including /mcp (bearer-gated inside Next), is the public
+  // demo app (synthetic data). /api/session is guarded inside Next via
+  // SESSION_ACCESS_TOKEN / rate limit.
   proxy(req, res, nextPort);
 });
 
 function shutdown() {
   next.kill("SIGTERM");
-  mcp.kill("SIGTERM");
   server.close();
 }
 

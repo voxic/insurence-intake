@@ -9,8 +9,14 @@ import {
   getProduct,
   listProducts,
   readResource,
+  reseedDemoData,
   searchClaims,
   searchCustomers,
+  updateDemoClaim,
+  updateDemoCustomer,
+  updateDemoPolicy,
+  updateDemoPricingRule,
+  updateDemoProduct,
 } from "./service";
 
 afterEach(async () => { await resetState(); });
@@ -54,6 +60,42 @@ describe("demo MCP service", () => {
     expect(await getProduct({ productId: "prd_pet_plus" })).toMatchObject({ product: { name: "Pet Plus", active: true } });
   });
 
+  it("updates records in the shared store and reads the change back through the read tools", async () => {
+    expect(await updateDemoCustomer({ customerId: "cus_ada", status: "inactive" })).toMatchObject({ updated: true, customer: { status: "inactive" } });
+    expect((await getCustomer({ customerId: "cus_ada" }))?.customer.status).toBe("inactive");
+
+    await updateDemoProduct({ productId: "prd_auto", description: "Edited over MCP for the demo." });
+    expect((await getProduct({ productId: "prd_auto" }))?.description).toBe("Edited over MCP for the demo.");
+
+    expect(await updateDemoPolicy({ policyId: "pol_ada", coverage: "Liability only", deductible: 900 })).toMatchObject({ policy: { coverage: "Liability only", deductible: 900 } });
+    expect((await getCustomer({ customerId: "cus_ada" }))?.policies[0]).toMatchObject({ coverage: "Liability only", deductible: 900 });
+
+    await updateDemoPricingRule({ pricingRuleId: "prc_auto_v3", basePremium: 2000 });
+    expect(await getPriceIndication({ productId: "prd_auto" })).toMatchObject({ annualRange: { low: 1800, high: 2200 } });
+
+    expect(await updateDemoClaim({ claimId: "clm_ada", customerId: "cus_ada", status: "approved", owner: "Demo bot" })).toMatchObject({ claim: { status: "approved" }, owner: "Demo bot" });
+    expect((await getClaim({ claimId: "clm_ada", customerId: "cus_ada" }))?.claim.status).toBe("approved");
+  });
+
+  it("rejects empty patches, sensitive fields, bad bounds, and backward claim transitions", async () => {
+    await expect(updateDemoCustomer({ customerId: "cus_ada" })).rejects.toThrow(/at least one field/);
+    await expect(updateDemoCustomer({ customerId: "cus_ada", ssn: "123-45-6789" })).rejects.toThrow();
+    await expect(updateDemoPricingRule({ pricingRuleId: "prc_auto_v3", maxPremium: 1 })).rejects.toThrow(/Maximum/);
+    await expect(updateDemoClaim({ claimId: "clm_ada", customerId: "cus_ada", status: "reported" })).rejects.toThrow(/cannot move/);
+    expect(await updateDemoClaim({ claimId: "clm_ada", customerId: "cus_ben", owner: "Wrong owner" })).toBeUndefined();
+    expect(await updateDemoPolicy({ policyId: "pol_nope", status: "expired" })).toBeUndefined();
+  });
+
+  it("reseeds the store back to the committed seed and requires the confirmation literal", async () => {
+    await updateDemoCustomer({ customerId: "cus_ada", name: "Edited Name" });
+    await updateDemoProduct({ productId: "prd_auto", active: false });
+    await expect(reseedDemoData({ confirmation: "yes" })).rejects.toThrow();
+    const result = await reseedDemoData({ confirmation: "RESEED_DEMO_DATA" });
+    expect(result).toMatchObject({ reseeded: true, counts: { customers: 12, products: 10, policies: 7, pricingRules: 10, claims: 4 } });
+    expect((await getCustomer({ customerId: "cus_ada" }))?.customer.name).toBe("Ada H.");
+    expect((await getProduct({ productId: "prd_auto" }))?.product.active).toBe(true);
+  });
+
   it("never returns government IDs, payment data, secrets, transcripts, or unmasked contact fields", async () => {
     const state = await getState();
     const payloads = [
@@ -85,7 +127,7 @@ describe("demo MCP service", () => {
       for (const event of claim.events) expect(serialized).not.toContain(event.note);
     }
     expect(serialized).not.toMatch(/"paidAmount"|"reserve"|"premium"|"ssn"|"passport"|"cvv"|"iban"|"transcript"|"callId"/i);
-    expect(mcpToolNames.join(",")).not.toMatch(/transcript|handoff|create_|update_|bind_/);
+    expect(mcpToolNames.join(",")).not.toMatch(/transcript|handoff|create_|bind_|delete_/);
     expect(redact({ ssn: "123-45-6789", paidAmount: 3100, customer: { address: "nope", name: "Ada H." } })).toEqual({
       customer: { name: "Ada H." },
     });

@@ -30,10 +30,10 @@ Open [http://127.0.0.1:4317](http://127.0.0.1:4317). The key must stay on the se
 | Variable | Where | Purpose |
 | --- | --- | --- |
 | `XAI_API_KEY` | `.env.local` / Fly secrets only | Used by `POST /api/session` to mint an ephemeral client secret from `https://api.x.ai/v1/realtime/client_secrets`. Never sent to the browser, MCP responses, logs, or git. |
-| `MCP_AUTH_TOKEN` | `.env.local` / Fly secrets only | Server-held bearer for Streamable HTTP MCP (`Authorization: Bearer …`). Min 24 characters. Required for `npm run mcp:http` and `npm run start:public`. |
+| `MCP_AUTH_TOKEN` | `.env.local` / Fly secrets only | Server-held bearer for Streamable HTTP MCP at `/mcp` (`Authorization: Bearer …`). Min 24 characters. Without it `/mcp` answers `401`; required by `npm run start:public`. |
 | `SESSION_ACCESS_TOKEN` | `.env.local` / Fly secrets only | Shared secret required by `POST /api/session` on the public host. Min 16 characters. **Required** by `npm run start:public` — it refuses to boot without it, so the public URL never mints Realtime tokens (and thus never spends `XAI_API_KEY`) for anonymous callers. Unset locally = open. |
 | `DEMO_PASSWORD` | `.env.local` / Fly secrets only | Shared password for the public desk-phone UI. Min 8 characters. `POST /api/demo-login` validates it server-side and sets a site-wide (`Path=/`), HTTP-only, `SameSite=Strict` cookie valid for 8 hours, so the gate stays open across `/` and `/settings`; required by `npm run start:public`. Unset local dev stays open. |
-| `DATA_DIR` | Fly volume | Persistent JSON/transcript root, read at runtime by both Next and MCP. Defaults to `./data`. Set to `/data` on Fly. |
+| `DATA_DIR` | Fly volume | Persistent transcript root, read at runtime. Defaults to `./data`. Set to `/data` on Fly. Backoffice data is not stored here; it lives in memory. |
 
 Do **not** prefix these with `NEXT_PUBLIC_`. The browser never receives the long-lived xAI key, the MCP bearer, the session access token, or the demo password.
 
@@ -54,14 +54,15 @@ Without `XAI_API_KEY`, the phone still renders. The empty state explains that th
 
 ## Live demo workflow
 
-The desk-phone call now has a small server-mediated bridge over the shared read-only demo MCP and backoffice store:
+The desk-phone call has a small server-mediated bridge over the shared in-memory demo store that MCP and the backoffice also use:
 
 1. Ask Eve a product or coverage question (for example, “What does Auto Core cover?”). She looks up read-only demo product data and makes clear it is not a quote or binding coverage.
 2. To report a claim, provide a three-digit demo policy number such as `105` (or say "one oh five"). Eve verifies its masked policy/customer details.
 3. Eve collects a non-sensitive loss date, type, description, and severity; she reads them back and requires a clear yes before creating a demo claim.
-4. Open `/backoffice/claims` to see the confirmed claim in the same JSON-backed store. The call transcript remains in the desk notepad as the handoff record.
+4. Open `/backoffice/claims` to see the confirmed claim in the same in-memory store. The call transcript remains in the desk notepad as the handoff record.
+5. Edit a product or policy in `/backoffice` (or over MCP) and ask Eve again: the next lookup reads the edited record without a redeploy.
 
-The browser has neither MCP credentials nor direct MCP access. It forwards Realtime function calls to a narrowly scoped server route; that route uses the shared read-only MCP service for product/policy lookup, validates inputs, and writes only confirmed demo claims. The tool bridge returns no unmasked contact data, and product information remains read-only.
+The browser has neither MCP credentials nor direct MCP access. It forwards Realtime function calls to a narrowly scoped server route; that route uses the shared MCP service for product/policy lookup, validates inputs, and writes only confirmed demo claims. The tool bridge returns no unmasked contact data, and the caller cannot change products or policies.
 
 ## Settings
 
@@ -80,20 +81,51 @@ User text comes from `conversation.item.input_audio_transcription.updated` / `.c
 
 ## Backoffice (demo)
 
-`/backoffice` is a local operations demo (dashboard, customers, products, pricing, claims) backed by a JSON repository, not a real CRM or claims system.
+`/backoffice` is a local operations demo (dashboard, customers, policies, products, pricing, claims) backed by an in-memory store, not a real CRM or claims system.
 
 **Synthetic data only.** Every record is obviously fictional: `example.com` emails, `555-01xx` phone numbers, and made-up street names. This environment stores **no sensitive data** — no government IDs, no dates of birth used as identity, no payment cards, no medical details, no passwords, and no API keys. The `/api/backoffice/*` endpoints schema-reject any create/update payload carrying such fields, and voice transcripts are never filed into the backoffice store. Use **Reset demo data** to restore the committed seed.
 
-Storage lives in `data/backoffice/seed.json` (committed) and a gitignored `state.json` (runtime), accessed only through `src/lib/backoffice/repository.ts`.
+**Editing.** Every entity page has an **Edit** button per row (or per product card) that opens an inline form for the fields on screen: customer contact details and status; policy status, coverage, deductible, premium, and term; product name, description, coverages, deductibles, and active flag; pricing rule premiums and active flag; claim status (forward only), owner, reserve, and paid amount. **Save** goes through the existing `PATCH /api/backoffice/*` routes.
+
+**Storage: in memory, reset on restart.** `src/lib/backoffice/repository.ts` loads `data/backoffice/seed.json` into one in-memory store when the Next server boots (`src/instrumentation.ts`). The backoffice UI, the voice bridge, and MCP all read and write that same object, so an edit is visible on the next request everywhere. Nothing is written to disk: a redeploy or process restart reloads the seed and discards every edit. That is intentional for the demo — keep `seed.json` as the only durable source, and keep archived/inactive products out of it even if a runtime edit archives one.
 
 ## Demo MCP connector
 
-The demo MCP server uses the same `data/backoffice/seed.json` / local
-backoffice state as `/backoffice`. It exposes redacted synthetic customers,
-products, price indications, and claims; it has **no write tools** and never
-returns call transcripts. Price results are non-binding indications, not quotes.
-Confirmed demo-claim creation stays on the Next.js server (`POST /api/realtime/tools`)
-with the existing call-session confirmation binding — it is not a public MCP tool.
+The demo MCP server runs **inside the Next.js process** at `/mcp` and reads and
+writes the same in-memory backoffice store as `/backoffice` and the voice bridge.
+It exposes redacted synthetic customers, products, price indications, and claims,
+and it never returns call transcripts. Price results are non-binding indications,
+not quotes. Confirmed demo-claim creation stays on the Next.js server
+(`POST /api/realtime/tools`) with the existing call-session confirmation binding —
+there is no create-claim MCP tool.
+
+Read tools: `search_demo_customers`, `get_demo_customer`, `list_demo_products`,
+`get_demo_product`, `get_demo_price_indication`, `search_demo_claims`,
+`get_demo_claim_status`.
+
+Write tools (in-memory only; every change is gone after a restart or redeploy):
+
+| Tool | Input | Effect |
+| --- | --- | --- |
+| `update_demo_customer` | `customerId` + any of `name`, `email`, `phone`, `address`, `status` | Patches the customer. Sensitive keys (`ssn`, `dob`, card data, …) are rejected. |
+| `update_demo_product` | `productId` + any of `name`, `description`, `coverages`, `deductibles`, `active` | Patches the product. `lookup_demo_product` on the next call sees it. |
+| `update_demo_policy` | `policyId` + any of `status`, `coverage`, `deductible`, `premium`, `effectiveDate`, `expirationDate` | Patches the policy. `verify_demo_policy` on the next call sees it. |
+| `update_demo_pricing_rule` | `pricingRuleId` + any of `active`, `basePremium`, `minPremium`, `maxPremium`, `factors` | Patches the rule; the full rule is re-validated (max ≥ min). |
+| `update_demo_claim` | `claimId`, `customerId` + any of `status`, `owner`, `reserve` | Forward-only status moves (reported → reviewing → approved → closed). |
+| `reseed_demo_data` | `confirmation: "RESEED_DEMO_DATA"` | Wipes memory and reloads `data/backoffice/seed.json`. Same effect as **Reset demo data** in the UI. |
+
+Responses stay redacted: names, phones, emails, and policy/claim numbers are
+masked, and premium/reserve amounts are stripped, exactly as for the read tools.
+
+### Local Streamable HTTP (authenticated)
+
+Set `MCP_AUTH_TOKEN` in `.env.local` and run `npm run dev` (or `npm start`).
+
+Connector URL: `http://127.0.0.1:4317/mcp`  
+Auth header: `Authorization: Bearer <MCP_AUTH_TOKEN>`
+
+Unauthenticated or wrong-token requests receive `401`; with no `MCP_AUTH_TOKEN`
+configured the route refuses everything.
 
 ### Local stdio
 
@@ -101,20 +133,9 @@ with the existing call-session confirmation binding — it is not a public MCP t
 npm run mcp:stdio
 ```
 
-### Local Streamable HTTP (authenticated)
-
-Set `MCP_AUTH_TOKEN` in `.env.local`, then:
-
-```bash
-set -a && source .env.local && set +a
-npm run mcp:http
-```
-
-Connector URL: `http://127.0.0.1:4318/mcp`  
-Auth header: `Authorization: Bearer <MCP_AUTH_TOKEN>`
-
-The standalone MCP process still defaults to loopback (`MCP_HOST=127.0.0.1`).
-Unauthenticated or wrong-token requests receive `401`.
+stdio starts a **separate process** with its own in-memory copy of the seed, so
+its edits are not visible in `/backoffice`. Use it for read-only inspection; use
+the HTTP connector above to change what the UI and the voice agent see.
 
 ### Grok Bot (public HTTPS)
 
@@ -131,15 +152,16 @@ Walkthrough once the connector is attached:
 1. Ask Grok Bot to `list_demo_products` or describe Auto Core coverage.
 2. Search a synthetic customer (`search_demo_customers` with name `Ada`).
 3. Look up a claim card (`search_demo_claims` with a partial claim number such as `26002`), then `get_demo_claim_status` with that claim ID **and** its customer ID.
-4. Confirm there is no create/update claim tool on MCP. To file a demo claim, use the desk-phone Eve flow (verified policy + single-use confirmation on the Next app).
+4. Change something: `update_demo_product` with `productId: prd_auto` and a new `description`, then open `/backoffice/products` — the card shows the new text. `reseed_demo_data` with `confirmation: RESEED_DEMO_DATA` puts the seed back.
+5. Confirm there is no create-claim tool on MCP. To file a demo claim, use the desk-phone Eve flow (verified policy + single-use confirmation on the Next app).
 
 Do not paste `MCP_AUTH_TOKEN` into client-side app code, README screenshots, or git.
 
 ## Public single-instance deploy (Fly.io)
 
-JSON backoffice state and transcripts need one process and a disk. This repo is **not** for Vercel serverless JSON files.
+The in-memory backoffice store needs exactly one long-lived process, and transcripts need a disk. This repo is **not** for Vercel serverless. Every deploy or machine restart reloads `data/backoffice/seed.json` and discards backoffice edits.
 
-`Dockerfile` + `fly.toml` run Next (desk phone + backoffice) and MCP behind one public port:
+`Dockerfile` + `fly.toml` run one Next process (desk phone + backoffice + MCP at `/mcp`) behind one public port:
 
 - `https://<app>.fly.dev/` — Next app (synthetic data, public-ok; desk-phone calls require demo-password login)
 - `https://<app>.fly.dev/mcp` — Streamable HTTP MCP (`MCP_AUTH_TOKEN` bearer required)
@@ -169,7 +191,7 @@ fly deploy --ha=false
 fly scale count 1
 ```
 
-Keep **exactly one** machine. `fly.toml` already sets `min_machines_running = 1` and `auto_stop_machines = "off"`. The volume is mounted at `/data`; `DATA_DIR=/data` is set in the container **before** the build and read lazily at runtime, so Next backoffice writes and MCP reads share the same volume. Seed JSON stays in the image.
+Keep **exactly one** machine. `fly.toml` already sets `min_machines_running = 1` and `auto_stop_machines = "off"`. The volume is mounted at `/data` for transcripts; `DATA_DIR=/data` is set in the container **before** the build and read lazily at runtime. Seed JSON stays in the image and is loaded into memory on boot.
 
 ### Starting a call on the public host
 

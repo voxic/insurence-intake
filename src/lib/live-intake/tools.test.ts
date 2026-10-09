@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getState, resetState } from "@/lib/backoffice/repository";
+import { getState, resetState, updatePolicy, updateProduct } from "@/lib/backoffice/repository";
 import { clearLiveIntakeCallsForTest, createLiveIntakeCall } from "./call-state";
 import { executeRealtimeTool } from "./tools";
 
@@ -204,5 +204,26 @@ describe("live intake tool adapter", () => {
       { callId },
     );
     expect(sensitive).toMatchObject({ confirmed: false });
+  });
+
+  it("sees runtime product and policy edits on the next call without a restart", async () => {
+    await updateProduct("prd_auto", { description: "Edited demo auto cover.", deductibles: [750] });
+    await updatePolicy("pol_ada", { coverage: "Liability only", deductible: 900 });
+
+    const product = await executeRealtimeTool("lookup_demo_product", { query: "auto core" });
+    expect(product.products).toEqual([
+      expect.objectContaining({ name: "Auto Core", description: "Edited demo auto cover.", deductibles: [750] }),
+    ]);
+    const policy = await executeRealtimeTool("verify_demo_policy", { policy_number: "105" }, { callId });
+    expect(policy).toMatchObject({ found: true, policy: expect.objectContaining({ coverage: "Liability only", deductible: 900 }) });
+
+    await updateProduct("prd_auto", { active: false });
+    expect(productNames(await executeRealtimeTool("lookup_demo_product", { query: "auto" }))).toEqual(["Auto Full", "Auto Partial"]);
+
+    await resetState();
+    expect(productNames(await executeRealtimeTool("lookup_demo_product", { query: "auto" }))).toEqual(["Auto Core", "Auto Full", "Auto Partial"]);
+    expect(await executeRealtimeTool("verify_demo_policy", { policy_number: "105" }, { callId })).toMatchObject({
+      policy: expect.objectContaining({ coverage: "Comprehensive", deductible: 500 }),
+    });
   });
 });
