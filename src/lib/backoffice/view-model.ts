@@ -9,6 +9,10 @@ export const claimStatusVariant: Record<ClaimStatus, BadgeVariant> = { reported:
 export const customerStatusVariant: Record<CustomerStatus, BadgeVariant> = { active: "default", prospect: "outline", inactive: "secondary" };
 export const policyStatusVariant: Record<PolicyStatus, BadgeVariant> = { active: "default", expired: "secondary", cancelled: "destructive" };
 
+const claimTransitions: Record<ClaimStatus, ClaimStatus[]> = { reported: ["reviewing", "closed"], reviewing: ["approved", "closed"], approved: ["closed"], closed: [] };
+/** Forward-only claim workflow. Shared by the server guard and the edit form's status options. */
+export function nextClaimStatuses(from: ClaimStatus) { return claimTransitions[from]; }
+
 export type PolicyRow = Policy & { customerName: string; productName: string };
 
 /** Policies joined to customer and product names, active first, then newest effective date. */

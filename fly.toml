@@ -1,5 +1,6 @@
 # Single-instance public demo. Do not scale this process above 1 machine:
-# backoffice state and transcripts are JSON files on one volume.
+# backoffice state lives in one process's memory and transcripts are JSON
+# files on one volume.
 app = "insurence-intake"
 primary_region = "sjc"
 
@@ -10,8 +11,6 @@ primary_region = "sjc"
   PORT = "8080"
   DATA_DIR = "/data"
   NEXT_INTERNAL_PORT = "4317"
-  MCP_HOST = "127.0.0.1"
-  MCP_PORT = "4318"
 
 [http_service]
   internal_port = 8080
