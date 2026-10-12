@@ -90,6 +90,7 @@ export const updateClaimInput = z.object({
 }).refine((input) => hasPatch(input, ["claimId", "customerId"]), requirePatch);
 export const reseedInput = z.object({
   confirmation: z.literal("RESEED_DEMO_DATA").describe("Type RESEED_DEMO_DATA to discard every runtime edit."),
+  seedId: z.string().trim().min(1).max(40).optional().describe("Seed to load, such as insurance or support. Omit to reload the active seed."),
 });
 
 export const customerCardSchema = z.object({

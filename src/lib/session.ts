@@ -32,13 +32,14 @@ For every claim, verify_demo_policy first. After an unambiguous caller yes to th
 
 export function buildSessionUpdate(
   instructions = INTAKE_INSTRUCTIONS,
-  options: { pushToTalk?: boolean; voice?: string } = {},
+  options: { pushToTalk?: boolean; voice?: string; claimProtocol?: boolean } = {},
 ) {
+  const claimProtocol = options.claimProtocol !== false;
   return {
     type: "session.update",
     session: {
       voice: normalizeVoiceId(options.voice),
-      instructions: `${instructions}\n\n${SERVER_ENFORCED_INTAKE_PROTOCOL}`,
+      instructions: claimProtocol ? `${instructions}\n\n${SERVER_ENFORCED_INTAKE_PROTOCOL}` : instructions,
       tools: REALTIME_TOOLS,
       turn_detection: options.pushToTalk
         ? null

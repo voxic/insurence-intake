@@ -1,11 +1,11 @@
 import { z } from "zod";
-import { createClaim, getState } from "@/lib/backoffice/repository";
+import { createClaim, getCatalogRows, getLookupRows, getState, type LookupRow } from "@/lib/backoffice/repository";
 import { claimCreateSchema as backofficeClaimCreateSchema } from "@/lib/backoffice/schemas";
-import type { Claim, Policy, Product } from "@/lib/backoffice/types";
+import type { Claim, Policy } from "@/lib/backoffice/types";
 import { normalizeSpokenPolicyNumber } from "@/lib/policy-number";
 import { getCustomer, searchCustomers } from "@/mcp/service";
 import { maskNumber } from "@/mcp/redaction";
-import { matchProducts } from "./product-search";
+import { matchProducts, type CatalogItem } from "./product-search";
 import {
   consumeConfirmation,
   hasVerifiedPolicy,
@@ -34,13 +34,14 @@ const claimCreateSchema = z
 type ToolResult = Record<string, unknown>;
 type ToolContext = { callId: string | null };
 
-function policyDetails(policy: Policy, customer: string | null) {
+function policyDetails(policy: Policy | LookupRow, customer: string | null) {
   return {
     policy_number: maskNumber(policy.number),
     status: policy.status,
-    coverage: policy.coverage,
-    deductible: policy.deductible,
-    expiration_date: policy.expirationDate,
+    ...(policy.coverage ? { coverage: policy.coverage } : {}),
+    ...("subject" in policy && policy.subject ? { subject: policy.subject } : {}),
+    ...(policy.deductible !== undefined ? { deductible: policy.deductible } : {}),
+    ...(policy.expirationDate ? { expiration_date: policy.expirationDate } : {}),
     customer,
   };
 }
@@ -48,10 +49,10 @@ function policyDetails(policy: Policy, customer: string | null) {
 async function findPolicy(number: string) {
   const canonical = normalizeSpokenPolicyNumber(number);
   if (!canonical) return null;
-  const policy = (await getState()).policies.find(
-    (candidate) => normalizeSpokenPolicyNumber(candidate.number) === canonical,
-  );
-  return policy ? { policy } : null;
+  const match = getLookupRows().find((candidate) => normalizeSpokenPolicyNumber(candidate.number) === canonical);
+  if (!match) return null;
+  const policy = (await getState()).policies.find((candidate) => candidate.id === match.id) ?? match;
+  return { policy };
 }
 
 async function verifyPolicyWithMcp(number: string) {
@@ -72,19 +73,20 @@ async function verifyPolicyWithMcp(number: string) {
   return { customer: customer.name, policy: local.policy };
 }
 
-function spokenSwedishName(product: Product) {
+function spokenSwedishName(product: CatalogItem) {
   const aliases = product.aliases?.sv ?? [];
   return aliases.find((alias) => alias.toLowerCase().includes("försäkring")) ?? aliases[0] ?? product.name;
 }
 
-function toCallerProduct(product: Product) {
+function toCallerProduct(product: CatalogItem) {
+  const coverages = product.coverages?.length ? product.coverages : product.steps ?? [];
   return {
     name: product.name,
     swedish_name: spokenSwedishName(product),
-    line: product.line,
+    line: product.line ?? product.category ?? "topic",
     description: product.description,
-    coverages: product.coverages,
-    deductibles: product.deductibles,
+    coverages,
+    ...(product.deductibles?.length ? { deductibles: product.deductibles } : {}),
     ...(product.priceRange ? { annual_price_range: product.priceRange } : {}),
   };
 }
@@ -97,12 +99,13 @@ function claimFingerprint(input: Omit<z.infer<typeof claimCreateSchema>, "confir
   });
 }
 
-function isLossDateCovered(policy: Policy, lossDate: string) {
+function isLossDateCovered(policy: { effectiveDate?: string; expirationDate?: string }, lossDate: string) {
+  if (!policy.effectiveDate || !policy.expirationDate) return false;
   return lossDate >= policy.effectiveDate && lossDate <= policy.expirationDate;
 }
 
 function hasSafeClaimDetails(
-  policy: Policy,
+  policy: { customerId: string; id: string },
   input: Omit<z.infer<typeof claimCreateSchema>, "confirmation_id">,
 ) {
   return backofficeClaimCreateSchema.safeParse({
@@ -199,7 +202,7 @@ export async function executeRealtimeTool(
   if (name === "lookup_demo_product") {
     const parsed = productLookupSchema.safeParse(input);
     if (!parsed.success) return { error: "A product search query is required." };
-    const catalog = (await getState()).products.filter((product) => product.active);
+    const catalog = getCatalogRows().filter((product) => product.active !== false);
     const matches = matchProducts(catalog, parsed.data.query)
       .sort((a, b) => a.name.localeCompare(b.name))
       .slice(0, 20)

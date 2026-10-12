@@ -1,5 +1,5 @@
 import { base64ToPcm16, MicCapture, PcmPlayer } from "@/lib/audio";
-import { loadInstructions, loadPushToTalk, loadVoice } from "@/lib/agent-settings";
+import { loadClaimProtocol, loadInstructions, loadPushToTalk, loadVoice } from "@/lib/agent-settings";
 import { buildSessionUpdate, REALTIME_URL } from "@/lib/session";
 import { RealtimeToolTurn } from "@/lib/realtime-tool-turn";
 import { createCall, persistCallToServer, saveCall, upsertTurn } from "@/lib/transcript";
@@ -211,7 +211,7 @@ export class VoiceSession {
       });
 
       this.socket?.send(
-        JSON.stringify(buildSessionUpdate(loadInstructions(), { pushToTalk, voice: loadVoice() })),
+        JSON.stringify(buildSessionUpdate(loadInstructions(), { pushToTalk, voice: loadVoice(), claimProtocol: loadClaimProtocol() })),
       );
       this.startedAt = Date.now();
       this.patch({ status: "live", call: { ...call, status: "live" } });

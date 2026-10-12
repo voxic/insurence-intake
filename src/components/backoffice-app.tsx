@@ -3,40 +3,198 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { EditForm, type EditTarget } from "@/components/backoffice-edit-form";
-import type { BackofficeState, Claim, Customer, Policy, PricingRule, Product } from "@/lib/backoffice/types";
-import { claimStatusVariant, customerStatusVariant, nextClaimStatuses, policyRows, policyStatusVariant } from "@/lib/backoffice/view-model";
+import { EditForm, type EditField, type EditTarget } from "@/components/backoffice-edit-form";
+import { nextClaimStatuses } from "@/lib/backoffice/view-model";
+import type { ClaimStatus } from "@/lib/backoffice/types";
+import type { DemoRow, FieldDef } from "@/lib/seeds/types";
 
-const links = [["Overview", "/backoffice"], ["Customers", "/backoffice/customers"], ["Policies", "/backoffice/policies"], ["Products", "/backoffice/products"], ["Pricing", "/backoffice/pricing"], ["Claims", "/backoffice/claims"]] as const;
-const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
-const shortDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-type EditProps = { editing: EditTarget | null; edit: (target: EditTarget) => void; close: () => void; reload: () => Promise<void> };
-const editTargets = {
-  customer: (x: Customer): EditTarget => ({ title: `Edit customer · ${x.name}`, url: `/api/backoffice/customers/${x.id}`, record: x, fields: [{ key: "name", label: "Name" }, { key: "email", label: "Email" }, { key: "phone", label: "Phone" }, { key: "address", label: "Address" }, { key: "status", label: "Status", type: "select", options: ["active", "prospect", "inactive"] }] }),
-  policy: (x: Policy): EditTarget => ({ title: `Edit policy · ${x.number}`, url: `/api/backoffice/policies/${x.id}`, record: x, fields: [{ key: "status", label: "Status", type: "select", options: ["active", "expired", "cancelled"] }, { key: "coverage", label: "Coverage" }, { key: "deductible", label: "Deductible (USD)", type: "number" }, { key: "premium", label: "Annual premium (USD)", type: "number" }, { key: "effectiveDate", label: "Effective date", type: "date" }, { key: "expirationDate", label: "Expiration date", type: "date" }] }),
-  product: (x: Product): EditTarget => ({ title: `Edit product · ${x.name}`, url: `/api/backoffice/products/${x.id}`, record: x, fields: [{ key: "name", label: "Name" }, { key: "description", label: "Description" }, { key: "coverages", label: "Coverages (comma separated)", type: "text-list" }, { key: "deductibles", label: "Deductibles (comma separated USD)", type: "number-list" }, { key: "active", label: "Active", type: "checkbox" }] }),
-  rule: (x: PricingRule, product: string): EditTarget => ({ title: `Edit pricing rule · ${product} v${x.version}`, url: `/api/backoffice/pricing/rules/${x.id}`, record: x, fields: [{ key: "basePremium", label: "Base premium (USD)", type: "number" }, { key: "minPremium", label: "Minimum premium (USD)", type: "number" }, { key: "maxPremium", label: "Maximum premium (USD)", type: "number" }, { key: "active", label: "Active", type: "checkbox" }] }),
-  claim: (x: Claim): EditTarget => ({ title: `Edit claim · ${x.number}`, url: `/api/backoffice/claims/${x.id}`, record: x, fields: [{ key: "status", label: "Status (forward only)", type: "select", options: [x.status, ...nextClaimStatuses(x.status)] }, { key: "owner", label: "Owner" }, { key: "reserve", label: "Reserve (USD)", type: "number" }, { key: "paidAmount", label: "Paid amount (USD)", type: "number" }] }),
+type CollectionView = {
+  id: string;
+  label: string;
+  slug?: string;
+  singular: string;
+  href: string;
+  role?: string;
+  fields: FieldDef[];
+  rows: DemoRow[];
 };
-function EditButton({ onClick }: { onClick: () => void }) { return <Button type="button" size="sm" variant="outline" onClick={onClick}>Edit</Button>; }
-function Editor({ editing, close, reload }: EditProps) { return editing ? <EditForm key={editing.url} target={editing} onCancel={close} onSaved={async () => { await reload(); close(); }} /> : null; }
 
-export function BackofficeApp({ view }: { view: "overview" | "customers" | "policies" | "products" | "pricing" | "claims" }) {
-  const [data, setData] = useState<BackofficeState | null>(null); const [query, setQuery] = useState(""); const [quote, setQuote] = useState<{ premium: number; ruleVersion: number } | null>(null);
-  const [editing, setEditing] = useState<EditTarget | null>(null);
-  const load = async () => { const [customers, products, policies, pricingRules, claims] = await Promise.all(["customers", "products", "policies", "pricing/rules", "claims"].map(async (path) => (await fetch(`/api/backoffice/${path}`)).json())); setData({ customers: customers.customers, products: products.products, policies: policies.policies, pricingRules: pricingRules.rules, claims: claims.claims }); };
-  useEffect(() => { const timer = window.setTimeout(() => { void load(); }, 0); return () => window.clearTimeout(timer); }, []);
-  const reset = async () => { if (window.confirm("Reset all fake demo data?")) { await fetch("/api/backoffice/reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmation: "RESET_DEMO_DATA" }) }); setEditing(null); await load(); } };
-  const editProps: EditProps = { editing, edit: setEditing, close: () => setEditing(null), reload: load };
-  const filteredCustomers = useMemo(() => data?.customers.filter((customer) => `${customer.name} ${customer.email}`.toLowerCase().includes(query.toLowerCase())) ?? [], [data, query]);
-  if (!data) return <main className="backoffice-loading">Loading demo workspace…</main>;
-  return <main className="backoffice-shell"><aside className="backoffice-nav"><div><p className="backoffice-eyebrow">Acme Insurance</p><h1>Operations</h1><p className="backoffice-demo">Local demo. Synthetic data only — no real customers, PII, or payment data.</p><p className="backoffice-demo">Edits live in memory and reset on the next deploy or restart.</p></div><nav aria-label="Backoffice"><div>{links.map(([label, href]) => <Link key={href} aria-current={view === label.toLowerCase() || (view === "overview" && label === "Overview") ? "page" : undefined} className={href.endsWith(view) || (view === "overview" && href === "/backoffice") ? "active" : ""} href={href}>{label}</Link>)}</div></nav><Button variant="outline" onClick={reset}>Reset demo data</Button></aside><section className="backoffice-content"><header className="backoffice-header"><div><p className="backoffice-eyebrow">Backoffice</p><h2>{view === "overview" ? "Portfolio overview" : view[0].toUpperCase() + view.slice(1)}</h2></div><Badge variant="outline">Synthetic demo data only — no real PII</Badge></header>{view === "overview" && <Overview data={data} />}{view === "customers" && <Customers customers={filteredCustomers} query={query} setQuery={setQuery} data={data} {...editProps} />}{view === "policies" && <Policies data={data} {...editProps} />}{view === "products" && <Products products={data.products} rules={data.pricingRules} {...editProps} />}{view === "pricing" && <Pricing data={data} quote={quote} setQuote={setQuote} {...editProps} />}{view === "claims" && <Claims claims={data.claims} customers={data.customers} {...editProps} />}</section></main>;
+function isClaimStatus(value: string): value is ClaimStatus {
+  return value === "reported" || value === "reviewing" || value === "approved" || value === "closed";
 }
-function Overview({ data }: { data: BackofficeState }) { const open = data.claims.filter((x) => x.status !== "closed"); return <div className="backoffice-grid"><Metric label="Active policies" value={data.policies.filter((x) => x.status === "active").length.toString()} href="/backoffice/policies" /><Metric label="Open claims" value={open.length.toString()} /><Metric label="Claim reserve" value={money.format(open.reduce((sum, x) => sum + x.reserve, 0))} /><Metric label="Active customers" value={data.customers.filter((x) => x.status === "active").length.toString()} /><section className="backoffice-panel span-2"><h3>Claims queue</h3><ClaimTable claims={data.claims.slice(0, 4)} customers={data.customers} /></section><section className="backoffice-panel"><h3>Pricing attention</h3><p>{data.pricingRules.filter((x) => !x.active).length} archived rule needs review.</p><p className="muted">Prices are indications only. They do not quote or bind coverage.</p></section></div>; }
-function Metric({ label, value, href }: { label: string; value: string; href?: string }) { const body = <><p>{label}</p><strong>{value}</strong>{href && <small>View all →</small>}</>; return href ? <Link className="backoffice-metric backoffice-metric-link" href={href}>{body}</Link> : <section className="backoffice-metric">{body}</section>; }
-function Customers({ customers, query, setQuery, data, ...editor }: { customers: Customer[]; query: string; setQuery: (x: string) => void; data: BackofficeState } & EditProps) { return <><label className="backoffice-search">Search fake customers<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name or email" /></label><Editor {...editor} /><section className="backoffice-panel"><table><thead><tr><th>Customer</th><th>Status</th><th>Policies</th><th>Claims</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{customers.map((customer) => <tr key={customer.id}><td><strong>{customer.name}</strong><small>{customer.email}</small></td><td><Badge variant={customerStatusVariant[customer.status]}>{customer.status}</Badge></td><td>{data.policies.filter((x) => x.customerId === customer.id).length}</td><td>{data.claims.filter((x) => x.customerId === customer.id).length}</td><td className="row-actions"><EditButton onClick={() => editor.edit(editTargets.customer(customer))} /></td></tr>)}</tbody></table></section></>; }
-function Policies({ data, ...editor }: { data: BackofficeState } & EditProps) { const rows = policyRows(data); return <><Editor {...editor} /><section className="backoffice-panel"><p className="muted">{rows.filter((x) => x.status === "active").length} active of {rows.length} demo policies. Premiums are annual and synthetic.</p><table><thead><tr><th>Policy</th><th>Customer</th><th>Product</th><th>Status</th><th>Term</th><th>Premium</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{rows.map((policy) => <tr key={policy.id}><td><strong>{policy.number}</strong><small>{policy.coverage} · {money.format(policy.deductible)} deductible</small></td><td>{policy.customerName}</td><td>{policy.productName}</td><td><Badge variant={policyStatusVariant[policy.status]}>{policy.status}</Badge></td><td>{shortDate.format(new Date(policy.effectiveDate))}<small>to {shortDate.format(new Date(policy.expirationDate))}</small></td><td>{money.format(policy.premium)}<small>rule v{policy.priceVersion}</small></td><td className="row-actions"><EditButton onClick={() => editor.edit(editTargets.policy(policy))} /></td></tr>)}</tbody></table></section></>; }
-function Products({ products, rules, ...editor }: { products: Product[]; rules: PricingRule[] } & EditProps) { return <><Editor {...editor} /><div className="product-grid">{products.map((product) => <section className="backoffice-panel" key={product.id}><div className="panel-title"><h3>{product.name}</h3><Badge variant={product.active ? "default" : "secondary"}>{product.active ? "Active" : "Archived"}</Badge></div><p>{product.description}</p><p className="muted">{product.coverages.join(" · ")}</p><p>Deductibles: {product.deductibles.map((x) => money.format(x)).join(", ")}</p><div className="panel-footer"><small>Rule: v{rules.find((rule) => rule.productId === product.id)?.version ?? "—"}</small><EditButton onClick={() => editor.edit(editTargets.product(product))} /></div></section>)}</div></>; }
-function Pricing({ data, quote, setQuote, ...editor }: { data: BackofficeState; quote: { premium: number; ruleVersion: number } | null; setQuote: (x: { premium: number; ruleVersion: number } | null) => void } & EditProps) { const [customerId, setCustomerId] = useState(data.customers[0]?.id ?? ""); const [productId, setProductId] = useState(data.products.find((x) => x.active)?.id ?? ""); const [factor, setFactor] = useState("standard"); const simulate = async () => { const response = await fetch("/api/backoffice/pricing/quote", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ customerId, productId, factor }) }); if (response.ok) setQuote(await response.json()); }; const productName = (id: string) => data.products.find((p) => p.id === id)?.name ?? id; return <div className="backoffice-grid"><section className="backoffice-panel"><h3>Price indication</h3><p className="muted">For demo discussion only. This does not quote or bind coverage.</p><div className="form-grid"><label>Customer<select value={customerId} onChange={(e) => setCustomerId(e.target.value)}>{data.customers.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label><label>Product<select value={productId} onChange={(e) => setProductId(e.target.value)}>{data.products.filter((x) => x.active).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label><label>Risk profile<select value={factor} onChange={(e) => setFactor(e.target.value)}><option value="standard">Standard</option><option value="preferred">Preferred</option><option value="highRisk">High risk</option></select></label></div><Button onClick={simulate}>Calculate indication</Button></section><section className="backoffice-panel">{quote ? <><p className="backoffice-eyebrow">Annual indication · rule v{quote.ruleVersion}</p><strong className="quote-value">{money.format(quote.premium)}</strong></> : <p>Choose a customer and product to calculate a deterministic indication.</p>}</section>{editor.editing && <div className="span-2"><Editor {...editor} /></div>}<section className="backoffice-panel span-2"><h3>Pricing rules</h3><table><thead><tr><th>Product</th><th>Version</th><th>Base</th><th>Range</th><th>Status</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{data.pricingRules.map((x) => <tr key={x.id}><td>{productName(x.productId)}</td><td>v{x.version}</td><td>{money.format(x.basePremium)}</td><td>{money.format(x.minPremium)}–{money.format(x.maxPremium)}</td><td>{x.active ? "Active" : "Archived"}</td><td className="row-actions"><EditButton onClick={() => editor.edit(editTargets.rule(x, productName(x.productId)))} /></td></tr>)}</tbody></table></section></div>; }
-function Claims({ claims, customers, ...editor }: { claims: Claim[]; customers: Customer[] } & EditProps) { return <><Editor {...editor} /><section className="backoffice-panel"><p className="muted">Claims are manually created in this demo. Voice transcripts are not filed as claims.</p><ClaimTable claims={claims} customers={customers} onEdit={(claim) => editor.edit(editTargets.claim(claim))} /></section></>; }
-function ClaimTable({ claims, customers, onEdit }: { claims: Claim[]; customers: Customer[]; onEdit?: (claim: Claim) => void }) { return <table><thead><tr><th>Claim</th><th>Customer</th><th>Status</th><th>Owner</th><th>Reserve</th>{onEdit && <th><span className="sr-only">Actions</span></th>}</tr></thead><tbody>{claims.map((claim) => <tr key={claim.id}><td><strong>{claim.number}</strong><small>{claim.type}</small></td><td>{customers.find((x) => x.id === claim.customerId)?.name}</td><td><Badge variant={claimStatusVariant[claim.status]}>{claim.status}</Badge></td><td>{claim.owner}</td><td>{money.format(claim.reserve)}</td>{onEdit && <td className="row-actions"><EditButton onClick={() => onEdit(claim)} /></td>}</tr>)}</tbody></table>; }
+type Workspace = {
+  seedId: string;
+  label: string;
+  overviewTitle: string;
+  stats: { label: string; value: string; href: string }[];
+  collections: CollectionView[];
+};
+
+const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+
+function listFields(collection: CollectionView) {
+  return collection.fields.filter((field) => field.list !== false && field.key !== "id");
+}
+
+function cellText(row: DemoRow, field: FieldDef, collections: CollectionView[]) {
+  const value = row[field.key];
+  if (field.lookup) {
+    const related = collections.find((collection) => collection.id === field.lookup?.collection);
+    const match = related?.rows.find((item) => item.id === value);
+    const label = match?.[field.lookup.labelKey];
+    return typeof label === "string" ? label : String(value ?? "");
+  }
+  if (field.type === "checkbox") return value ? "Active" : "Inactive";
+  if (Array.isArray(value)) {
+    return field.format === "money" ? value.map((item) => money.format(Number(item))).join(", ") : value.join(", ");
+  }
+  if (field.format === "money" && typeof value === "number") return money.format(value);
+  if (value === undefined || value === null || typeof value === "object") return "";
+  return String(value);
+}
+
+function badgeVariant(value: string) {
+  if (["active", "approved", "open", "true", "Active"].includes(value)) return "default" as const;
+  if (["inactive", "closed", "expired", "cancelled", "solved", "Inactive"].includes(value)) return "secondary" as const;
+  if (["reported"].includes(value)) return "destructive" as const;
+  return "outline" as const;
+}
+
+function editTarget(collection: CollectionView, row: DemoRow): EditTarget {
+  const primary = collection.fields.find((field) => field.primary) ?? collection.fields[0];
+  const titleValue = primary ? cellText(row, primary, [collection]) : row.id;
+  const fields: EditField[] = collection.fields.filter((field) => field.edit !== false).map((field) => {
+    if (field.flow === "claim" && field.options) {
+      const current = String(row[field.key] ?? "");
+      const allowed = isClaimStatus(current) ? [current, ...nextClaimStatuses(current as ClaimStatus)] : field.options;
+      return { key: field.key, label: field.label, type: "select", options: field.options.filter((option) => allowed.includes(option)) };
+    }
+    return { key: field.key, label: field.label, type: field.type, options: field.options };
+  });
+  return {
+    title: `Edit ${collection.singular} · ${titleValue}`,
+    url: `/api/backoffice/workspace/${collection.id}/${row.id}`,
+    record: row,
+    fields,
+  };
+}
+
+export function BackofficeApp({ collection: collectionKey }: { collection?: string }) {
+  const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [query, setQuery] = useState("");
+  const [editing, setEditing] = useState<EditTarget | null>(null);
+  const load = async () => {
+    const response = await fetch("/api/backoffice/workspace", { cache: "no-store" });
+    setWorkspace((await response.json()) as Workspace);
+  };
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+  const reset = async () => {
+    if (!window.confirm("Reset this seed? In-memory edits will be discarded.")) return;
+    await fetch("/api/backoffice/reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmation: "RESET_DEMO_DATA" }) });
+    setEditing(null);
+    await load();
+  };
+  const current = workspace?.collections.find((collection) => collection.id === collectionKey || collection.slug === collectionKey || collection.href.endsWith(`/${collectionKey}`));
+  const rows = useMemo(() => {
+    if (!current || !workspace) return [];
+    const fields = listFields(current);
+    const needle = query.trim().toLowerCase();
+    if (!needle) return current.rows;
+    return current.rows.filter((row) => fields.some((field) => cellText(row, field, workspace.collections).toLowerCase().includes(needle)));
+  }, [current, query, workspace]);
+
+  if (!workspace) return <main className="backoffice-loading">Loading demo workspace…</main>;
+  return (
+    <main className="backoffice-shell">
+      <aside className="backoffice-nav">
+        <div>
+          <p className="backoffice-eyebrow">{workspace.label}</p>
+          <h1>Operations</h1>
+          <p className="backoffice-demo">Local demo. Synthetic data only — no real customers, PII, or payment data.</p>
+          <p className="backoffice-demo">Edits live in memory and reset when you switch seeds, restart, or redeploy.</p>
+        </div>
+        <nav aria-label="Backoffice">
+          <div>
+            <Link aria-current={collectionKey ? undefined : "page"} className={collectionKey ? "" : "active"} href="/backoffice">Overview</Link>
+            {workspace.collections.map((collection) => (
+              <Link key={collection.id} aria-current={current?.id === collection.id ? "page" : undefined} className={current?.id === collection.id ? "active" : ""} href={collection.href}>{collection.label}</Link>
+            ))}
+          </div>
+        </nav>
+        <Button variant="outline" onClick={reset}>Reset demo data</Button>
+      </aside>
+      <section className="backoffice-content">
+        <header className="backoffice-header">
+          <div>
+            <p className="backoffice-eyebrow">Backoffice</p>
+            <h2>{current ? current.label : workspace.overviewTitle}</h2>
+          </div>
+          <Badge variant="outline">Synthetic demo data only — no real PII</Badge>
+        </header>
+        {collectionKey && !current ? <p>This seed has no collection by that name.</p> : null}
+        {!current ? <Overview workspace={workspace} /> : (
+          <>
+            <label className="backoffice-search">Search {current.label}
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name, number, or status" />
+            </label>
+            {editing ? <EditForm key={editing.url} target={editing} onCancel={() => setEditing(null)} onSaved={async () => { await load(); setEditing(null); }} /> : null}
+            <CollectionTable collection={current} rows={rows} collections={workspace.collections} onEdit={(row) => setEditing(editTarget(current, row))} />
+          </>
+        )}
+      </section>
+    </main>
+  );
+}
+
+function Overview({ workspace }: { workspace: Workspace }) {
+  const lookup = workspace.collections.find((collection) => collection.role === "lookup") ?? workspace.collections[0];
+  return (
+    <div className="backoffice-grid">
+      {workspace.stats.map((stat) => (
+        <Link key={stat.label} className="backoffice-metric backoffice-metric-link" href={stat.href}>
+          <p>{stat.label}</p>
+          <strong>{stat.value}</strong>
+          <small>View all →</small>
+        </Link>
+      ))}
+      {lookup ? (
+        <CollectionTable className="span-2" title={lookup.label} collection={lookup} rows={lookup.rows.slice(0, 5)} collections={workspace.collections} />
+      ) : null}
+    </div>
+  );
+}
+
+function CollectionTable({ collection, rows, collections, onEdit, title, className }: { collection: CollectionView; rows: DemoRow[]; collections: CollectionView[]; onEdit?: (row: DemoRow) => void; title?: string; className?: string }) {
+  const fields = listFields(collection);
+  return (
+    <section className={className ? `backoffice-panel ${className}` : "backoffice-panel"}>
+      {title ? <h3>{title}</h3> : null}
+      <table>
+        <thead>
+          <tr>
+            {fields.map((field) => <th key={field.key}>{field.label}</th>)}
+            {onEdit ? <th><span className="sr-only">Actions</span></th> : null}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id}>
+              {fields.map((field) => {
+                const text = cellText(row, field, collections);
+                return (
+                  <td key={field.key}>
+                    {field.primary ? <strong>{text}</strong> : field.badge ? <Badge variant={badgeVariant(text)}>{text}</Badge> : text}
+                  </td>
+                );
+              })}
+              {onEdit ? <td className="row-actions"><Button type="button" size="sm" variant="outline" onClick={() => onEdit(row)}>Edit</Button></td> : null}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}

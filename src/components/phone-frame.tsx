@@ -1,12 +1,15 @@
 import type { ReactNode } from "react";
+import type { AccentId } from "@/lib/seeds/types";
 import { formatClockTime } from "@/lib/utils";
 
 export function PhoneFrame({
   children,
   time = new Date(),
+  accent = "teal",
 }: {
   children: ReactNode;
   time?: Date;
+  accent?: AccentId;
 }) {
   return (
     <div className="phone-device">
@@ -16,7 +19,7 @@ export function PhoneFrame({
       <div className="phone-button phone-button-power" />
       <div className="phone-bezel">
         <div className="phone-glass">
-          <div className="phone-screen">
+          <div className="phone-screen" data-accent={accent}>
             <div className="phone-status">
               <span>{formatClockTime(time)}</span>
               <div className="phone-island" aria-hidden="true" />
