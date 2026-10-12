@@ -1,4 +1,17 @@
-import type { Product } from "@/lib/backoffice/types";
+import type { ProductAliases, ProductPriceRange } from "@/lib/backoffice/types";
+
+export type CatalogItem = {
+  name: string;
+  description: string;
+  active?: boolean;
+  line?: string;
+  category?: string;
+  coverages?: string[];
+  steps?: string[];
+  aliases?: ProductAliases;
+  deductibles?: number[];
+  priceRange?: ProductPriceRange;
+};
 
 // Filler around a catalog question. Category words live on each product in the seed.
 const GENERIC_PRODUCT_TOKENS = new Set([
@@ -42,9 +55,10 @@ function term(text: string, lang: Lang, tier: Tier): Term | null {
   return words.length > 0 && words.join("").length >= 3 ? { text: words.join(" "), words, lang, tier } : null;
 }
 
-function productTerms(product: Product): Term[] {
+function productTerms(product: CatalogItem): Term[] {
+  const labels = [product.name, product.line, product.category, ...(product.coverages ?? []), ...(product.steps ?? []), ...(product.aliases?.en ?? [])];
   const primary = [
-    ...[product.name, product.line, ...product.coverages, ...(product.aliases?.en ?? [])].map((text) => term(text, "en", 2)),
+    ...labels.filter((text): text is string => Boolean(text)).map((text) => term(text, "en", 2)),
     ...(product.aliases?.sv ?? []).map((text) => term(text, "sv", 2)),
   ];
   const fallback = tokenize(product.description)
@@ -84,7 +98,7 @@ function containsRun(outer: string[], inner: string[]) {
 // A match loses only to a longer phrase that contains it, or to the same words on a stronger
 // tier, so "full coverage auto" returns Auto Full alone while "home and car insurance" keeps
 // both lines.
-export function matchProducts(products: Product[], query: string) {
+export function matchProducts(products: CatalogItem[], query: string) {
   if (isGenericCatalogQuery(query)) return products;
   const tokens = tokenize(query);
   const hits = products

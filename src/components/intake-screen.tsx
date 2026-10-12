@@ -25,11 +25,15 @@ export function IntakeScreen({
   onHangup,
   onMute,
   pushToTalkPointerHandlers,
+  brand = "Acme Insurance",
+  subtitle = "Call-center intake",
 }: {
   snapshot: VoiceCallSnapshot;
   onCall: () => void;
   onHangup: () => void;
   onMute: (muted: boolean) => void;
+  brand?: string;
+  subtitle?: string;
   pushToTalkPointerHandlers: {
     onPointerDown: (event: PointerEvent<HTMLButtonElement>) => void;
     onPointerUp: () => void;
@@ -50,8 +54,8 @@ export function IntakeScreen({
           <ShieldCheck className="size-5" />
         </div>
         <div>
-          <p className="intake-brand">Acme Insurance</p>
-          <p className="intake-sub">Call-center intake</p>
+          <p className="intake-brand">{brand}</p>
+          <p className="intake-sub">{subtitle}</p>
         </div>
         <div className="intake-tools">
           <Badge
@@ -77,7 +81,7 @@ export function IntakeScreen({
         <div className={`intake-avatar ${live ? "is-live" : ""}`}>
           <span>Eve</span>
         </div>
-        <p className="intake-agent">Intake specialist</p>
+        <p className="intake-agent">{subtitle}</p>
         <p className="intake-timer">
           {live || snapshot.status === "ended"
             ? formatCallClock(snapshot.elapsedSeconds)
@@ -123,7 +127,9 @@ export function IntakeScreen({
               <p>
                 {snapshot.pushToTalk && live
                   ? "Push-to-talk is on. Hold Space or the mic button to speak."
-                  : "Eve will greet you, ask why you called, and keep a transcript for handoff. No claims are filed from this demo."}
+                  : subtitle === "Customer support"
+                    ? "They will greet you as support, look up a help topic, and keep a transcript for handoff."
+                    : "Eve will greet you, ask why you called, and keep a transcript for handoff. No claims are filed from this demo."}
               </p>
             )}
           </div>

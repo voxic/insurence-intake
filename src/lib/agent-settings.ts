@@ -7,20 +7,44 @@ export const PTT_STORAGE_KEY = "acme-intake-ptt";
 export const PTT_CHANGED_EVENT = "acme-intake-ptt";
 export const VOICE_STORAGE_KEY = "acme-intake-voice";
 export const VOICE_CHANGED_EVENT = "acme-intake-voice";
+export const SEED_STORAGE_KEY = "acme-intake-seed";
+
+let seedPrompt = INTAKE_INSTRUCTIONS;
+let claimProtocol = true;
+
+export function loadSeedPrompt() {
+  return seedPrompt;
+}
+
+export function loadClaimProtocol() {
+  return claimProtocol;
+}
+
+/** Point the next call at the active seed. A seed change drops a saved prompt override. */
+export function applyDemoProfile(profile: { seedId: string; agentPrompt: string; claimProtocol: boolean }) {
+  seedPrompt = profile.agentPrompt;
+  claimProtocol = profile.claimProtocol;
+  if (typeof window === "undefined") return;
+  const previous = window.localStorage.getItem(SEED_STORAGE_KEY);
+  if (previous && previous !== profile.seedId) {
+    window.localStorage.removeItem(INSTRUCTIONS_STORAGE_KEY);
+  }
+  window.localStorage.setItem(SEED_STORAGE_KEY, profile.seedId);
+  window.dispatchEvent(new Event(INSTRUCTIONS_CHANGED_EVENT));
+}
 
 export function loadInstructions(): string {
-  if (typeof window === "undefined") {
-    return INTAKE_INSTRUCTIONS;
-  }
-  try {
-    const stored = window.localStorage.getItem(INSTRUCTIONS_STORAGE_KEY);
-    if (typeof stored === "string" && stored.trim()) {
-      return stored;
+  if (typeof window !== "undefined") {
+    try {
+      const stored = window.localStorage.getItem(INSTRUCTIONS_STORAGE_KEY);
+      if (typeof stored === "string" && stored.trim()) {
+        return stored;
+      }
+    } catch {
+      // private mode or blocked storage
     }
-  } catch {
-    // private mode or blocked storage
   }
-  return INTAKE_INSTRUCTIONS;
+  return seedPrompt;
 }
 
 export function saveInstructions(value: string) {
@@ -28,7 +52,7 @@ export function saveInstructions(value: string) {
   if (!next.trim()) {
     throw new Error("Instructions cannot be empty.");
   }
-  if (next === INTAKE_INSTRUCTIONS) {
+  if (next === seedPrompt) {
     window.localStorage.removeItem(INSTRUCTIONS_STORAGE_KEY);
   } else {
     window.localStorage.setItem(INSTRUCTIONS_STORAGE_KEY, next);
@@ -40,7 +64,7 @@ export function saveInstructions(value: string) {
 export function resetInstructions() {
   window.localStorage.removeItem(INSTRUCTIONS_STORAGE_KEY);
   window.dispatchEvent(new Event(INSTRUCTIONS_CHANGED_EVENT));
-  return INTAKE_INSTRUCTIONS;
+  return seedPrompt;
 }
 
 export function subscribeInstructions(listener: () => void) {

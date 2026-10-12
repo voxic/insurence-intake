@@ -202,6 +202,15 @@ code {
 }
 
 .phone-screen {
+  --phone-accent: #7de0d0;
+  --phone-accent-bright: #8ee8d8;
+  --phone-accent-deep: #1f6f62;
+  --phone-accent-ink: #123f3a;
+  --phone-accent-soft: rgba(42, 157, 143, 0.24);
+  --phone-glow: rgba(56, 142, 130, 0.2);
+  --phone-screen-top: #0b1c22;
+  --phone-screen-mid: #10262c;
+  --phone-screen-bottom: #0c181c;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -209,9 +218,54 @@ code {
   overflow: hidden;
   border-radius: 36px;
   background:
-    radial-gradient(circle at 80% 0%, rgba(56, 142, 130, 0.2), transparent 32%),
-    linear-gradient(180deg, #0b1c22 0%, #10262c 48%, #0c181c 100%);
+    radial-gradient(circle at 80% 0%, var(--phone-glow), transparent 32%),
+    linear-gradient(180deg, var(--phone-screen-top) 0%, var(--phone-screen-mid) 48%, var(--phone-screen-bottom) 100%);
   color: #eef7f4;
+}
+
+.phone-screen[data-accent="teal"] {
+  --phone-accent: #7de0d0;
+  --phone-accent-bright: #8ee8d8;
+  --phone-accent-deep: #1f6f62;
+  --phone-accent-ink: #123f3a;
+  --phone-accent-soft: rgba(42, 157, 143, 0.24);
+  --phone-glow: rgba(56, 142, 130, 0.2);
+}
+
+.phone-screen[data-accent="amber"] {
+  --phone-accent: #f0c36a;
+  --phone-accent-bright: #ffe1a8;
+  --phone-accent-deep: #a86b12;
+  --phone-accent-ink: #4a2e08;
+  --phone-accent-soft: rgba(240, 195, 106, 0.28);
+  --phone-glow: rgba(240, 195, 106, 0.35);
+  --phone-screen-top: #2a1c10;
+  --phone-screen-mid: #1c140e;
+  --phone-screen-bottom: #120e0a;
+}
+
+.phone-screen[data-accent="coral"] {
+  --phone-accent: #ff8f7a;
+  --phone-accent-bright: #ffc2b3;
+  --phone-accent-deep: #b24a38;
+  --phone-accent-ink: #4a1c14;
+  --phone-accent-soft: rgba(255, 143, 122, 0.28);
+  --phone-glow: rgba(255, 143, 122, 0.32);
+  --phone-screen-top: #2a1412;
+  --phone-screen-mid: #1c1210;
+  --phone-screen-bottom: #120c0b;
+}
+
+.phone-screen[data-accent="indigo"] {
+  --phone-accent: #a8b4ff;
+  --phone-accent-bright: #d5dbff;
+  --phone-accent-deep: #3d4cb5;
+  --phone-accent-ink: #1a2154;
+  --phone-accent-soft: rgba(168, 180, 255, 0.28);
+  --phone-glow: rgba(168, 180, 255, 0.32);
+  --phone-screen-top: #12162a;
+  --phone-screen-mid: #10131f;
+  --phone-screen-bottom: #0c0e16;
 }
 
 .phone-status {
@@ -308,8 +362,8 @@ code {
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: rgba(42, 157, 143, 0.2);
-  color: #7de0d0;
+  background: var(--phone-accent-soft);
+  color: var(--phone-accent);
 }
 
 .intake-brand {
@@ -317,6 +371,7 @@ code {
   font-family: var(--font-display), Georgia, serif;
   font-size: 1.15rem;
   line-height: 1.1;
+  color: var(--phone-accent);
 }
 
 .intake-sub {
@@ -361,10 +416,10 @@ code {
   height: 84px;
   border-radius: 50%;
   background:
-    radial-gradient(circle at 30% 25%, #8ee8d8, #1f6f62 58%, #123f3a);
+    radial-gradient(circle at 30% 25%, var(--phone-accent-bright), var(--phone-accent-deep) 58%, var(--phone-accent-ink));
   font-family: var(--font-display), Georgia, serif;
   font-size: 1.4rem;
-  box-shadow: 0 0 0 6px rgba(42, 157, 143, 0.12);
+  box-shadow: 0 0 0 6px var(--phone-accent-soft);
 }
 
 .intake-avatar.is-live {
@@ -397,7 +452,7 @@ code {
 .intake-wave span {
   width: 4px;
   border-radius: 999px;
-  background: #7de0d0;
+  background: var(--phone-accent);
   transition: height 80ms linear;
 }
 
@@ -429,7 +484,7 @@ code {
 
 .bubble-user {
   align-self: flex-end;
-  background: rgba(42, 157, 143, 0.24);
+  background: var(--phone-accent-soft);
 }
 
 .bubble-who {
@@ -871,6 +926,100 @@ code {
   font: inherit;
   font-size: 0.75rem;
   cursor: pointer;
+}
+
+.settings-seed {
+  margin: 0 0 18px;
+  padding-bottom: 8px;
+}
+
+.settings-seed-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.settings-seed-list button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #c4ae8f;
+  border-radius: 8px;
+  background: #fffaf0;
+  color: #2b2118;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-seed-list button.is-current {
+  border-color: #1f6f62;
+}
+
+.settings-seed-list small {
+  margin-left: auto;
+  color: #1f6f62;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.settings-phone-name {
+  display: block;
+  width: 100%;
+  margin: 0 0 12px;
+  border: 1px solid #c4ae8f;
+  border-radius: 8px;
+  background: #fffaf0;
+  color: #2b2118;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.settings-accents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.settings-accent {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #c4ae8f;
+  border-radius: 999px;
+  background: #fffaf0;
+  color: #2b2118;
+  padding: 6px 12px;
+  text-transform: capitalize;
+}
+
+.settings-accent.is-current {
+  border-color: #1f6f62;
+  box-shadow: inset 0 0 0 1px #1f6f62;
+}
+
+.settings-accent i {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+}
+
+.settings-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-confirm p {
+  flex: 1 1 100%;
+  margin: 0 0 4px;
+  color: #5c4a38;
 }
 
 .settings-voice-play:disabled {

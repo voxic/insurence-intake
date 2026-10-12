@@ -62,13 +62,17 @@ The desk-phone call has a small server-mediated bridge over the shared in-memory
 4. Open `/backoffice/claims` to see the confirmed claim in the same in-memory store. The call transcript remains in the desk notepad as the handoff record.
 5. Edit a product or policy in `/backoffice` (or over MCP) and ask Eve again: the next lookup reads the edited record without a redeploy.
 
-Product lookup (`src/lib/live-intake/product-search.ts`) matches the caller's words, not the whole utterance: a product matches when its name, line, coverage, or an English/Swedish alias from `seed.json` appears as whole words in the sentence (plurals, Swedish definite forms, and `-försäkring` compounds such as `kattförsäkring` count). Description words are a fallback when nothing else matches. A generic "what do you offer" returns every active product; a sentence naming several lines returns all of them. New vocabulary goes in the product's `aliases` in `seed.json`.
+Product lookup (`src/lib/live-intake/product-search.ts`) matches the caller's words, not the whole utterance: a catalog row matches when its name, line, category, coverage, step, or an English/Swedish alias appears as whole words in the sentence (plurals, Swedish definite forms, and `-försäkring` compounds such as `kattförsäkring` count). Description words are a fallback when nothing else matches. A generic "what do you offer" returns every active catalog row; a sentence naming several lines returns all of them. New vocabulary goes in that row's `aliases`. The insurance catalog is `data/backoffice/seed.json`. The support catalog is `data/seeds/support.json`. Lookup reads whichever seed is loaded in memory.
 
 The browser has neither MCP credentials nor direct MCP access. It forwards Realtime function calls to a narrowly scoped server route; that route uses the shared MCP service for product/policy lookup, validates inputs, and writes only confirmed demo claims. The tool bridge returns no unmasked contact data, and the caller cannot change products or policies.
 
 ## Settings
 
-Open **Settings** from the gear on the phone or the notepad chip, or go to `/settings`. Edit Eve’s system prompt, **Save**, or **Reset to default**. The text is stored in `localStorage` (`acme-intake-instructions`) and sent on the next Call as `session.update.session.instructions`. Pick a Grok voice in the same panel. The choice is stored in `localStorage` (`acme-intake-voice`) and sent as `session.update.session.voice` on the next Call. Eve, Ara, Rex, Sal, and Leo have published samples that play without a key. Other samples, including Swedish, are synthesized by `GET /api/voices/preview` with the server-side `XAI_API_KEY`. A live call is not rewritten mid-session.
+Open **Settings** from the gear on the phone or the notepad chip, or go to `/settings`. Edit Eve’s system prompt, **Save**, or **Reset to default**. The text is stored in `localStorage` (`acme-intake-instructions`) and sent on the next Call as `session.update.session.instructions`. The default prompt is the active seed's prompt. Pick a Grok voice in the same panel. The choice is stored in `localStorage` (`acme-intake-voice`) and sent as `session.update.session.voice` on the next Call. Eve, Ara, Rex, Sal, and Leo have published samples that play without a key. Other samples, including Swedish, are synthesized by `GET /api/voices/preview` with the server-side `XAI_API_KEY`. A live call is not rewritten mid-session.
+
+**Demo seed.** The same page switches the in-memory seed. Confirming a switch reseeds from that seed and discards runtime edits, including a custom phone name. Acme Insurance is the boot seed (policies, products, pricing, claims, and product aliases). Northstar Support is a generic service desk (customers, tickets, help topics) with its own support prompt. A process restart loads Acme Insurance again.
+
+**Phone name and accent.** Settings also sets the name and accent shown on the desk phone. The seed supplies the defaults. A manual change lasts until the next seed switch or restart.
 
 ## Transcript storage
 
@@ -83,13 +87,15 @@ User text comes from `conversation.item.input_audio_transcription.updated` / `.c
 
 ## Backoffice (demo)
 
-`/backoffice` is a local operations demo (dashboard, customers, policies, products, pricing, claims) backed by an in-memory store, not a real CRM or claims system.
+`/backoffice` is a local operations demo backed by an in-memory store, not a real CRM. Nav, overview stats, and list/edit pages come from the active seed's collections. Acme Insurance shows customers, policies, products, pricing, and claims. Northstar Support shows customers, tickets, and help topics.
 
 **Synthetic data only.** Every record is obviously fictional: `example.com` emails, `555-01xx` phone numbers, and made-up street names. This environment stores **no sensitive data** — no government IDs, no dates of birth used as identity, no payment cards, no medical details, no passwords, and no API keys. The `/api/backoffice/*` endpoints schema-reject any create/update payload carrying such fields, and voice transcripts are never filed into the backoffice store. Use **Reset demo data** to restore the committed seed.
 
 **Editing.** Every entity page has an **Edit** button per row (or per product card) that opens an inline form for the fields on screen: customer contact details and status; policy status, coverage, deductible, premium, and term; product name, description, coverages, deductibles, and active flag; pricing rule premiums and active flag; claim status (forward only), owner, reserve, and paid amount. **Save** goes through the existing `PATCH /api/backoffice/*` routes.
 
-**Storage: in memory, reset on restart.** `src/lib/backoffice/repository.ts` loads `data/backoffice/seed.json` into one in-memory store when the Next server boots (`src/instrumentation.ts`). The backoffice UI, the voice bridge, and MCP all read and write that same object, so an edit is visible on the next request everywhere. Nothing is written to disk: a redeploy or process restart reloads the seed and discards every edit. That is intentional for the demo — keep `seed.json` as the only durable source, and keep archived/inactive products out of it even if a runtime edit archives one.
+**Storage: in memory, reset on restart.** `src/lib/backoffice/repository.ts` loads the insurance seed (`data/backoffice/seed.json`) into one in-memory store when the Next server boots (`src/instrumentation.ts`). The backoffice UI, the voice bridge, and MCP all read and write that same object, so an edit is visible on the next request everywhere. Nothing is written to disk: a redeploy or process restart reloads the insurance seed and discards every edit. Switching seeds does the same for the chosen file. Keep archived/inactive products out of the insurance seed even if a runtime edit archives one.
+
+Seeds are declared in `src/lib/seeds/registry.ts`: an id, label, agent prompt, phone defaults, and collections with fields. Row JSON stays next to that manifest. A third seed is another entry plus a JSON file; the list/edit pages do not need a new screen.
 
 ## Demo MCP connector
 
@@ -114,7 +120,7 @@ Write tools (in-memory only; every change is gone after a restart or redeploy):
 | `update_demo_policy` | `policyId` + any of `status`, `coverage`, `deductible`, `premium`, `effectiveDate`, `expirationDate` | Patches the policy. `verify_demo_policy` on the next call sees it. |
 | `update_demo_pricing_rule` | `pricingRuleId` + any of `active`, `basePremium`, `minPremium`, `maxPremium`, `factors` | Patches the rule; the full rule is re-validated (max ≥ min). |
 | `update_demo_claim` | `claimId`, `customerId` + any of `status`, `owner`, `reserve` | Forward-only status moves (reported → reviewing → approved → closed). |
-| `reseed_demo_data` | `confirmation: "RESEED_DEMO_DATA"` | Wipes memory and reloads `data/backoffice/seed.json`. Same effect as **Reset demo data** in the UI. |
+| `reseed_demo_data` | `confirmation: "RESEED_DEMO_DATA"`, optional `seedId` | Wipes memory and reloads the active seed. Pass `seedId` (`insurance` or `support`) to switch seeds and reseed. Same bearer as the other tools. Omitting `seedId` matches **Reset demo data** for the seed already loaded. A process restart always boots `insurance`. |
 
 Responses stay redacted: names, phones, emails, and policy/claim numbers are
 masked, and premium/reserve amounts are stripped, exactly as for the read tools.

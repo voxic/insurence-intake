@@ -109,7 +109,7 @@ export function createMcpServer() {
     inputSchema: updateClaimInput, annotations: edits,
   }, tool(updateDemoClaim));
   server.registerTool("reseed_demo_data", {
-    title: "Reseed demo data", description: "Discard every runtime edit and reload data/backoffice/seed.json into memory.",
+    title: "Reseed demo data", description: "Discard every runtime edit and reload the active seed, or switch to a named seed such as insurance or support.",
     inputSchema: reseedInput, annotations: wipes,
   }, tool(reseedDemoData));
 

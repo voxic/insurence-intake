@@ -7,10 +7,12 @@ import { DeskNotepad } from "@/components/desk-notepad";
 import { IntakeScreen } from "@/components/intake-screen";
 import { PhoneFrame } from "@/components/phone-frame";
 import { usePushToTalk } from "@/hooks/use-push-to-talk";
+import { useDemoProfile } from "@/hooks/use-demo-profile";
 import { useVoiceCall } from "@/hooks/use-voice-call";
 
 export function DeskScene() {
   const call = useVoiceCall();
+  const { profile } = useDemoProfile();
   const [now, setNow] = useState(() => new Date());
   const [demoPasswordRequired, setDemoPasswordRequired] = useState(false);
   const pushToTalk = usePushToTalk({
@@ -35,9 +37,11 @@ export function DeskScene() {
     <div className="desk">
       <div className="desk-glow" aria-hidden="true" />
       <div className="desk-stage">
-        <PhoneFrame time={now}>
+        <PhoneFrame time={now} accent={profile?.phone.accent ?? "teal"}>
           <IntakeScreen
             snapshot={call}
+            brand={profile?.phone.displayName}
+            subtitle={profile?.phone.subtitle}
             onCall={() => void call.start()}
             onHangup={() => void call.hangup()}
             onMute={call.setMuted}

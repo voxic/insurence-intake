@@ -1,0 +1,21 @@
+{
+  "customers": [
+    {"id":"cus_maya","name":"Maya Chen","email":"maya.chen@example.com","phone":"555-0141","address":"18 Fictional Lane, Testville","status":"active","plan":"Desk","createdAt":"2026-01-06T09:00:00.000Z","updatedAt":"2026-01-06T09:00:00.000Z"},
+    {"id":"cus_omar","name":"Omar Shah","email":"omar.shah@example.com","phone":"555-0142","address":"4 Demo Street, Testville","status":"active","plan":"Workshop","createdAt":"2026-01-12T09:00:00.000Z","updatedAt":"2026-01-12T09:00:00.000Z"},
+    {"id":"cus_priya","name":"Priya Nunez","email":"priya.nunez@example.com","phone":"555-0143","address":"22 Sample Court, Testville","status":"prospect","plan":"Desk","createdAt":"2026-02-02T09:00:00.000Z","updatedAt":"2026-02-02T09:00:00.000Z"},
+    {"id":"cus_leo","name":"Leo Grant","email":"leo.grant@example.com","phone":"555-0144","address":"6 Placeholder Way, Testville","status":"active","plan":"Field","createdAt":"2026-02-18T09:00:00.000Z","updatedAt":"2026-02-18T09:00:00.000Z"},
+    {"id":"cus_nina","name":"Nina Brooks","email":"nina.brooks@example.com","phone":"555-0145","address":"90 Imaginary Road, Testville","status":"inactive","plan":"Workshop","createdAt":"2025-11-20T09:00:00.000Z","updatedAt":"2026-03-01T09:00:00.000Z"}
+  ],
+  "tickets": [
+    {"id":"tkt_maya","number":"204","customerId":"cus_maya","topicId":"top_wifi","subject":"Wifi keeps dropping after a password change","status":"open","owner":"Sam Okonkwo","openedAt":"2026-04-02"},
+    {"id":"tkt_omar","number":"318","customerId":"cus_omar","topicId":"top_billing","subject":"Copy of the March service statement","status":"waiting","owner":"Jules Park","openedAt":"2026-04-06"},
+    {"id":"tkt_priya","number":"427","customerId":"cus_priya","topicId":"top_access","subject":"Locked out after too many sign-in tries","status":"open","owner":"Unassigned","openedAt":"2026-04-08"},
+    {"id":"tkt_leo","number":"533","customerId":"cus_leo","topicId":"top_plan","subject":"Move the workshop plan to the smaller tier","status":"solved","owner":"Sam Okonkwo","openedAt":"2026-03-21"}
+  ],
+  "topics": [
+    {"id":"top_wifi","name":"Wifi password reset","category":"access","description":"Demo steps to reset the wifi password on a Northstar service plan. Do not ask the caller to say the password.","steps":["Confirm the account email","Send the reset link","Ask them to try the new password off the call"],"active":true,"aliases":{"en":["wifi","wi-fi","wireless","network password","router"],"sv":["wifi","trådlöst"]}},
+    {"id":"top_billing","name":"Billing statement","category":"billing","description":"Demo steps to resend a monthly service statement. This is not an insurance bill.","steps":["Confirm the account email","Name the statement month","Send the PDF copy"],"active":true,"aliases":{"en":["invoice","bill","billing","statement","receipt"],"sv":["faktura","räkning"]}},
+    {"id":"top_access","name":"Account lockout","category":"access","description":"Demo steps when a caller cannot sign in to the Northstar service portal.","steps":["Confirm the account email","Clear the lockout","Send a sign-in link"],"active":true,"aliases":{"en":["login","sign in","locked out","account access","cannot log in"],"sv":["inloggning","låst"]}},
+    {"id":"top_plan","name":"Service plan change","category":"plans","description":"Demo steps to move between the Desk, Workshop, and Field service plans. This does not bind coverage.","steps":["Name the current plan","Name the requested plan","Schedule the change for the next cycle"],"active":true,"aliases":{"en":["upgrade","downgrade","service plan","change plan","cancel plan"],"sv":["uppgradera","abonnemang"]}}
+  ]
+}

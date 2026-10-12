@@ -1,5 +1,6 @@
 import {
-  canTransition, getState, resetState, updateClaim, updateCustomer, updatePolicy, updatePricingRule, updateProduct,
+  activateSeed, canTransition, collectionCounts, getActiveSeedId, getLookupRows, getState, resetState,
+  updateClaim, updateCustomer, updatePolicy, updatePricingRule, updateProduct,
 } from "@/lib/backoffice/repository";
 import { customerPatchSchema, pricingRuleSchema, productPatchSchema, policyCreateSchema } from "@/lib/backoffice/schemas";
 import { normalizeSpokenPolicyNumber } from "@/lib/policy-number";
@@ -51,7 +52,7 @@ export async function searchCustomers(input: unknown) {
   const { name, phoneLast4, policyNumber, limit } = searchCustomersInput.parse(input);
   const state = await getState();
   const wantedPolicy = policyNumber ? normalizeSpokenPolicyNumber(policyNumber) : null;
-  const policyCustomers = new Set(state.policies
+  const policyCustomers = new Set(getLookupRows()
     .filter((policy) => !policyNumber || (wantedPolicy !== null && normalizeSpokenPolicyNumber(policy.number) === wantedPolicy))
     .map((policy) => policy.customerId));
   const result = sortById(state.customers).filter((customer) =>
@@ -67,9 +68,9 @@ export async function getCustomer(input: unknown) {
   const state = await getState();
   const customer = state.customers.find((item) => item.id === customerId);
   if (!customer) return undefined;
-  const policies = state.policies.filter((policy) => policy.customerId === customer.id).map((policy) => ({
-    policyId: policy.id, policyNumber: maskNumber(policy.number), productId: policy.productId,
-    status: policy.status, coverage: policy.coverage, deductible: policy.deductible,
+  const policies = getLookupRows().filter((policy) => policy.customerId === customer.id).map((policy) => ({
+    policyId: policy.id, policyNumber: maskNumber(policy.number), productId: policy.productId ?? policy.id,
+    status: policy.status, coverage: policy.coverage ?? policy.subject ?? "", deductible: policy.deductible ?? 0,
   }));
   const claims = state.claims.filter((claim) => claim.customerId === customer.id).map(claimCard);
   return payload({
@@ -202,11 +203,19 @@ export async function updateDemoClaim(input: unknown) {
 }
 
 export async function reseedDemoData(input: unknown) {
-  reseedInput.parse(input);
-  const seed = await resetState();
+  const { seedId } = reseedInput.parse(input);
+  const seed = seedId ? await activateSeed(seedId) : await resetState();
+  const activeId = getActiveSeedId();
   return payload({
-    reseeded: true, counts: { customers: seed.customers.length, products: seed.products.length, policies: seed.policies.length, pricingRules: seed.pricingRules.length, claims: seed.claims.length },
-    summary: "Demo data reloaded from data/backoffice/seed.json. Every runtime edit was discarded.",
+    reseeded: true,
+    seedId: activeId,
+    counts: {
+      customers: seed.customers.length, products: seed.products.length, policies: seed.policies.length,
+      pricingRules: seed.pricingRules.length, claims: seed.claims.length, ...collectionCounts(),
+    },
+    summary: seedId
+      ? `Demo data switched to the ${activeId} seed. Every runtime edit was discarded.`
+      : "Demo data reloaded from the active seed. Every runtime edit was discarded.",
   });
 }
 
