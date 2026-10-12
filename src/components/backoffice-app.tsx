@@ -97,7 +97,9 @@ export function BackofficeApp({ collection: collectionKey }: { collection?: stri
     setEditing(null);
     await load();
   };
-  const current = workspace?.collections.find((collection) => collection.id === collectionKey || collection.slug === collectionKey || collection.href.endsWith(`/${collectionKey}`));
+  const current = collectionKey
+    ? workspace?.collections.find((collection) => collection.id === collectionKey || collection.slug === collectionKey || collection.href.endsWith(`/${collectionKey}`))
+    : undefined;
   const rows = useMemo(() => {
     if (!current || !workspace) return [];
     const fields = listFields(current);
