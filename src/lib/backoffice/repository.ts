@@ -56,7 +56,12 @@ export function getActiveManifest() {
   return definition;
 }
 export function listSeedChoices() {
-  return listSeeds().map((seed) => ({ id: seed.id, label: seed.label }));
+  return listSeeds().map((seed) => ({
+    id: seed.id,
+    label: seed.label,
+    summary: seed.summary,
+    backoffice: seed.backoffice,
+  }));
 }
 export function getPhoneAppearance(): PhoneDefaults {
   return { ...store().phone };
@@ -82,10 +87,15 @@ export async function setPhoneAppearance(patch: { displayName: string; accent: P
 }
 
 // Voice tools and MCP still read these five insurance keys. Other seeds leave the missing ones empty.
+function rowsForRole(role: "customers" | "catalog" | "lookup") {
+  const ids = getActiveManifest().collections.filter((collection) => collection.role === role).map((collection) => collection.id);
+  return ids.flatMap((id) => store().collections[id] ?? []);
+}
+
 export async function getState(): Promise<BackofficeState> {
   const collections = store().collections;
   return {
-    customers: (collections.customers ?? []) as Customer[],
+    customers: rowsForRole("customers") as Customer[],
     products: (collections.products ?? []) as Product[],
     policies: (collections.policies ?? []) as Policy[],
     pricingRules: (collections.pricingRules ?? []) as PricingRule[],
@@ -98,9 +108,7 @@ export function collectionCounts() {
 }
 
 export function getCatalogRows(): CatalogItem[] {
-  const id = getActiveManifest().collections.find((collection) => collection.role === "catalog")?.id;
-  if (!id) return [];
-  return (store().collections[id] ?? []) as unknown as CatalogItem[];
+  return rowsForRole("catalog") as unknown as CatalogItem[];
 }
 
 export type LookupRow = {

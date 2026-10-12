@@ -1,0 +1,30 @@
+{
+  "residents": [
+    {"id":"cus_jordan","name":"Jordan Hale","email":"jordan.hale@example.com","phone":"555-0161","address":"410 Imaginary Ave, Testville","unit":"3B","propertyId":"prop_birch","status":"active","createdAt":"2026-01-08T09:00:00.000Z","updatedAt":"2026-01-08T09:00:00.000Z"},
+    {"id":"cus_samira","name":"Samira Okonkwo","email":"samira.okonkwo@example.com","phone":"555-0162","address":"18 Sample Court, Testville","unit":"1A","propertyId":"prop_cedar","status":"active","createdAt":"2026-01-14T09:00:00.000Z","updatedAt":"2026-01-14T09:00:00.000Z"},
+    {"id":"cus_ellis","name":"Ellis Berg","email":"ellis.berg@example.com","phone":"555-0163","address":"2 Placeholder Wharf, Testville","unit":"12","propertyId":"prop_dock","status":"prospect","createdAt":"2026-02-03T09:00:00.000Z","updatedAt":"2026-02-03T09:00:00.000Z"},
+    {"id":"cus_noor","name":"Noor Patel","email":"noor.patel@example.com","phone":"555-0164","address":"77 Fictional Lane, Testville","unit":"4C","propertyId":"prop_elm","status":"active","createdAt":"2026-02-19T09:00:00.000Z","updatedAt":"2026-02-19T09:00:00.000Z"},
+    {"id":"cus_chris","name":"Chris Lang","email":"chris.lang@example.com","phone":"555-0165","address":"9 Demo Street, Testville","unit":"2","propertyId":"prop_ferry","status":"inactive","createdAt":"2025-11-02T09:00:00.000Z","updatedAt":"2026-03-12T09:00:00.000Z"}
+  ],
+  "properties": [
+    {"id":"prop_birch","name":"Birch Court","address":"410 Imaginary Ave, Testville","units":24,"manager":"Rae Okonkwo"},
+    {"id":"prop_cedar","name":"Cedar House","address":"18 Sample Court, Testville","units":12,"manager":"Jules Park"},
+    {"id":"prop_dock","name":"Dockside Lofts","address":"2 Placeholder Wharf, Testville","units":40,"manager":"Sam Okonkwo"},
+    {"id":"prop_elm","name":"Elm Walk","address":"77 Fictional Lane, Testville","units":18,"manager":"Rae Okonkwo"},
+    {"id":"prop_ferry","name":"Ferry Annex","address":"9 Demo Street, Testville","units":8,"manager":"Jules Park"}
+  ],
+  "workOrders": [
+    {"id":"wo_jordan","number":"248","customerId":"cus_jordan","propertyId":"prop_birch","categoryId":"cat_plumbing","subject":"Kitchen sink leak, demo slot Thu 09:00-12:00","coverage":"Plumbing leak","status":"open","owner":"Rae Okonkwo","slot":"Thu 09:00-12:00"},
+    {"id":"wo_samira","number":"112","customerId":"cus_samira","propertyId":"prop_cedar","categoryId":"cat_heat","subject":"No heat in unit 1A, demo slot Fri 13:00-16:00","coverage":"No heat","status":"scheduled","owner":"Jules Park","slot":"Fri 13:00-16:00"},
+    {"id":"wo_ellis","number":"361","customerId":"cus_ellis","propertyId":"prop_dock","categoryId":"cat_elevator","subject":"Elevator stopped at floor 2, demo slot today","coverage":"Elevator outage","status":"on-site","owner":"Sam Okonkwo","slot":"Today, demo window"},
+    {"id":"wo_noor","number":"475","customerId":"cus_noor","propertyId":"prop_elm","categoryId":"cat_pest","subject":"Mice reported in the basement, demo slot Mon 08:00-11:00","coverage":"Pest visit","status":"open","owner":"Unassigned","slot":"Mon 08:00-11:00"},
+    {"id":"wo_chris","number":"590","customerId":"cus_chris","propertyId":"prop_ferry","categoryId":"cat_appliance","subject":"Fridge not cooling, demo visit already closed","coverage":"Appliance repair","status":"closed","owner":"Rae Okonkwo","slot":"Closed demo visit"}
+  ],
+  "categories": [
+    {"id":"cat_plumbing","name":"Plumbing leak","category":"plumbing","description":"Demo steps for a dripping faucet, running toilet, or clogged drain. This does not send a technician.","steps":["Ask which fixture is involved","Note the unit","Tell them a dispatcher reviews open work orders"],"active":true,"aliases":{"en":["leak","leaking","drip","pipe","faucet","sink","toilet","clog","drain","plumbing"],"sv":["vattenläcka","läcka","läcker","kran","diskbänk","toalett","avlopp","rör"]}},
+    {"id":"cat_heat","name":"No heat","category":"heat","description":"Demo steps when a unit has no warmth from the radiator or boiler. This does not promise a visit.","steps":["Ask which rooms are cold","Note the unit","Read back only a work order that already exists"],"active":true,"aliases":{"en":["no heat","heating","heat","radiator","furnace","boiler","cold apartment"],"sv":["ingen värme","värme","element","kall lägenhet","radiator"]}},
+    {"id":"cat_elevator","name":"Elevator outage","category":"elevator","description":"Demo steps when a lift is stuck or out of service. Tell them not to force the doors.","steps":["Ask which building","Tell them to use the stairs","Read back an existing work order if they have the number"],"active":true,"aliases":{"en":["elevator","lift","stuck elevator"],"sv":["hiss","fastnat"]}},
+    {"id":"cat_appliance","name":"Appliance repair","category":"appliance","description":"Demo steps for a fridge, stove, oven, or washer that stopped working. This does not book a vendor.","steps":["Ask which appliance","Ask whether it has power","Pass the note to a dispatcher"],"active":true,"aliases":{"en":["fridge","refrigerator","stove","oven","washer","dishwasher","appliance"],"sv":["kylskåp","spis","ugn","tvättmaskin","diskmaskin"]}},
+    {"id":"cat_pest","name":"Pest visit","category":"pest","description":"Demo steps when mice, rats, or insects are reported in a common area or unit.","steps":["Ask where they saw them","Tell them not to use an unlabeled spray","Pass the note to a dispatcher"],"active":true,"aliases":{"en":["mice","mouse","rats","pests","cockroach","ants","pest"],"sv":["möss","mus","råttor","skadedjur","kackerlacka","myror"]}}
+  ]
+}

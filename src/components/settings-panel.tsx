@@ -142,11 +142,12 @@ export function SettingsPanel() {
         <section className="settings-seed" aria-label="Demo seed">
           <p className="settings-label">Demo seed</p>
           <p className="settings-help">
-            Switching reseeds the in-memory backoffice from that seed and discards runtime edits.
-            A restart boots Acme Insurance again.
+            Switching loads that seed&apos;s backoffice, prompt, and catalog, and the next call uses them.
+            It wipes in-memory edits, including a custom phone name. A restart or deploy returns to Acme Insurance.
           </p>
+          {profile ? (
           <div className="settings-seed-list" role="radiogroup" aria-label="Demo seed">
-            {(profile?.seeds ?? [{ id: "insurance", label: "Acme Insurance" }, { id: "support", label: "Northstar Support" }]).map((seed) => (
+            {profile.seeds.map((seed) => (
               <button
                 key={seed.id}
                 type="button"
@@ -158,11 +159,16 @@ export function SettingsPanel() {
                   setConfirmSeed(false);
                 }}
               >
-                <span>{seed.label}</span>
-                {profile?.seedId === seed.id ? <small>Active</small> : null}
+                <span className="settings-seed-copy">
+                  <strong>{seed.label}</strong>
+                  <span>{seed.summary}</span>
+                  <span>Backoffice: {seed.backoffice}.</span>
+                </span>
+                {profile.seedId === seed.id ? <small>Active</small> : null}
               </button>
             ))}
           </div>
+          ) : <p className="settings-help">Loading demo seeds…</p>}
           {confirmSeed ? (
             <div className="settings-confirm">
               <p>Switch to {profile?.seeds.find((seed) => seed.id === activeSeed)?.label}? This wipes in-memory edits and the phone name.</p>
@@ -180,6 +186,14 @@ export function SettingsPanel() {
               Switch seed
             </Button>
           )}
+          <div className="settings-seed-actions">
+            <Button asChild variant="outline" className="notepad-chip">
+              <Link href="/backoffice">Open backoffice</Link>
+            </Button>
+            <Button asChild variant="outline" className="notepad-chip">
+              <Link href="/">Desk phone</Link>
+            </Button>
+          </div>
         </section>
         <section className="settings-seed" aria-label="Phone name and accent">
           <p className="settings-label">Phone on the desk</p>
