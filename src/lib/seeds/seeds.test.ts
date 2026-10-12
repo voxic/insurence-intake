@@ -10,6 +10,10 @@ import { reseedDemoData } from "@/mcp/service";
 import { updateCollectionRow } from "./edit-row";
 import { ACCENTS } from "./types";
 
+function names(result: { products?: unknown }) {
+  return (result.products as Array<{ name: string }>).map((item) => item.name);
+}
+
 afterEach(async () => {
   await activateSeed("insurance");
   applyDemoProfile({ seedId: "insurance", agentPrompt: INTAKE_INSTRUCTIONS, claimProtocol: true });
@@ -93,8 +97,104 @@ describe("demo seeds", () => {
     expect((await getState()).customers.some((customer) => customer.name === "Ada Hart")).toBe(false);
     const reloaded = await reseedDemoData({ confirmation: "RESEED_DEMO_DATA" });
     expect(reloaded).toMatchObject({ reseeded: true, seedId: "support", counts: { topics: 4 } });
+    const property = await reseedDemoData({ confirmation: "RESEED_DEMO_DATA", seedId: "property" });
+    expect(property).toMatchObject({ reseeded: true, seedId: "property", counts: { customers: 5, residents: 5, properties: 5, workOrders: 5, categories: 5, products: 0 } });
+    const clinic = await reseedDemoData({ confirmation: "RESEED_DEMO_DATA", seedId: "clinic" });
+    expect(clinic).toMatchObject({ reseeded: true, seedId: "clinic", counts: { customers: 5, patients: 5, appointments: 5, services: 5, instructions: 5, products: 0 } });
     const insurance = await reseedDemoData({ confirmation: "RESEED_DEMO_DATA", seedId: "insurance" });
     expect(insurance).toMatchObject({ reseeded: true, seedId: "insurance", counts: { customers: 12, products: 10, policies: 7, pricingRules: 10, claims: 4 } });
+  });
+
+  it("switches through property and clinic, changing collections, prompts, and phone defaults", async () => {
+    await updateCustomer("cus_ada", { name: "Edited Name" });
+    await activateSeed("property");
+    expect((await getState()).customers.some((customer) => customer.id === "cus_ada")).toBe(false);
+    expect(getCollections().residents).toHaveLength(5);
+    expect(getCollections().properties).toHaveLength(5);
+    expect(getCollections().workOrders.map((row) => row.number)).toEqual(expect.arrayContaining(["248", "112", "361", "475", "590"]));
+    expect(getCollections().categories).toHaveLength(5);
+    expect(getDemoProfile().agentPrompt).toContain("Harborline");
+    expect(getDemoProfile().agentPrompt).toContain("emergency services");
+    expect(getDemoProfile().agentPrompt).not.toContain("Acme Insurance");
+    expect(getDemoProfile().claimProtocol).toBe(false);
+    expect(getPhoneAppearance()).toMatchObject({ displayName: "Harborline Dispatch", subtitle: "Maintenance dispatch", accent: "coral" });
+    expect(getDemoProfile().seeds.map((seed) => seed.id)).toEqual(["insurance", "support", "property", "clinic"]);
+    expect(getDemoProfile().seeds.find((seed) => seed.id === "property")).toMatchObject({
+      summary: expect.stringContaining("Maintenance dispatch"),
+      backoffice: expect.stringContaining("work orders"),
+    });
+
+    const edited = await updateCollectionRow("workOrders", "wo_jordan", { status: "scheduled", subject: "Kitchen sink leak, demo slot moved" });
+    expect(edited).toMatchObject({ status: "scheduled", subject: "Kitchen sink leak, demo slot moved" });
+
+    await activateSeed("clinic");
+    expect(getCollections().workOrders).toBeUndefined();
+    expect(getCollections().patients).toHaveLength(5);
+    expect(getCollections().appointments).toHaveLength(5);
+    expect(getCollections().services).toHaveLength(5);
+    expect(getCollections().instructions).toHaveLength(5);
+    expect(getDemoProfile().agentPrompt).toContain("Willow Clinic");
+    expect(getDemoProfile().agentPrompt).toContain("not medical advice");
+    expect(getDemoProfile().agentPrompt).toContain("emergency services");
+    expect(getPhoneAppearance()).toMatchObject({ displayName: "Willow Clinic", subtitle: "Appointment intake", accent: "indigo" });
+    expect(getDemoProfile().seeds.find((seed) => seed.id === "clinic")?.backoffice).toContain("care instructions");
+
+    applyDemoProfile(getDemoProfile());
+    expect(loadInstructions()).toContain("appointment intake clerk");
+    expect(loadClaimProtocol()).toBe(false);
+    const session = buildSessionUpdate(loadInstructions(), { claimProtocol: loadClaimProtocol() });
+    expect(session.session.instructions).not.toContain("create_confirmed_demo_claim");
+
+    await activateSeed("insurance");
+    expect((await getState()).customers.find((customer) => customer.id === "cus_ada")?.name).toBe("Ada Hart");
+  });
+
+  it("resolves property and clinic questions in English and Swedish", async () => {
+    await activateSeed("property");
+    const propertyCases: Array<[string, string]> = [
+      ["The kitchen sink won't stop leaking", "Plumbing leak"],
+      ["Det läcker vatten under diskbänken", "Plumbing leak"],
+      ["There's no heat in the apartment", "No heat"],
+      ["Det är ingen värme i lägenheten", "No heat"],
+      ["Elementen är kalla", "No heat"],
+      ["Our elevator is stuck between floors", "Elevator outage"],
+      ["Hissen har fastnat", "Elevator outage"],
+      ["The fridge stopped cooling", "Appliance repair"],
+      ["Kylskåpet fungerar inte", "Appliance repair"],
+      ["We have mice in the basement", "Pest visit"],
+      ["Vi har möss i källaren", "Pest visit"],
+    ];
+    for (const [query, name] of propertyCases) {
+      const result = await executeRealtimeTool("lookup_demo_product", { query });
+      expect(names(result), query).toEqual([name]);
+    }
+    const workOrder = await executeRealtimeTool("verify_demo_policy", { policy_number: "248" });
+    expect(workOrder).toMatchObject({ found: true, policy: expect.objectContaining({ customer: "Jordan H.", status: "open" }) });
+
+    await activateSeed("clinic");
+    const clinicCases: Array<[string, string]> = [
+      ["I need to book a blood test", "Blood draw"],
+      ["jag vill boka ett blodprov", "Blood draw"],
+      ["Do I need to fast before the blood test", "Fasting before a blood draw"],
+      ["måste jag fasta inför blodprovet", "Fasting before a blood draw"],
+      ["I need an x-ray", "Imaging visit"],
+      ["How do I prepare for the x-ray", "Preparing for an x-ray"],
+      ["hur förbereder jag mig för röntgen", "Preparing for an x-ray"],
+      ["Can I get a flu shot today", "Vaccination"],
+      ["jag behöver en vaccination", "Vaccination"],
+      ["I need a sick visit for a sore throat", "Sick visit"],
+      ["jag har ont i halsen", "Sick visit"],
+      ["I'd like an annual physical", "Annual physical"],
+      ["jag vill boka en hälsokontroll", "Annual physical"],
+      ["what should I expect at a physical", "What to expect at a physical"],
+      ["vad gäller inför hälsokontroll", "What to expect at a physical"],
+    ];
+    for (const [query, name] of clinicCases) {
+      const result = await executeRealtimeTool("lookup_demo_product", { query });
+      expect(names(result), query).toEqual([name]);
+    }
+    const appointment = await executeRealtimeTool("verify_demo_policy", { policy_number: "two sixty three" });
+    expect(appointment).toMatchObject({ found: true, policy: expect.objectContaining({ customer: "Robin H.", status: "arrived" }) });
   });
 
   it("styles every accent preset on the phone screen", () => {

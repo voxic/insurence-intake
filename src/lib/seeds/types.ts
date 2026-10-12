@@ -44,9 +44,20 @@ export type PhoneDefaults = {
   accent: AccentId;
 };
 
+export type SeedChoice = {
+  id: string;
+  label: string;
+  summary: string;
+  /** What the backoffice lists for this seed, without the "Backoffice:" prefix. */
+  backoffice: string;
+};
+
 export type SeedManifest = {
   id: string;
   label: string;
+  /** One line shown next to the seed switch. */
+  summary: string;
+  backoffice: string;
   overviewTitle: string;
   /** When true, the next call still appends the insurance claim protocol. */
   claimProtocol?: boolean;
@@ -62,7 +73,7 @@ export type DemoProfile = {
   agentPrompt: string;
   claimProtocol: boolean;
   phone: PhoneDefaults;
-  seeds: { id: string; label: string }[];
+  seeds: SeedChoice[];
 };
 
 export type DemoRow = Record<string, unknown> & { id: string };

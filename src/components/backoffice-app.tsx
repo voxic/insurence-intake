@@ -54,7 +54,7 @@ function cellText(row: DemoRow, field: FieldDef, collections: CollectionView[]) 
 }
 
 function badgeVariant(value: string) {
-  if (["active", "approved", "open", "true", "Active"].includes(value)) return "default" as const;
+  if (["active", "approved", "open", "true", "Active", "booked", "scheduled"].includes(value)) return "default" as const;
   if (["inactive", "closed", "expired", "cancelled", "solved", "Inactive"].includes(value)) return "secondary" as const;
   if (["reported"].includes(value)) return "destructive" as const;
   return "outline" as const;
@@ -97,7 +97,9 @@ export function BackofficeApp({ collection: collectionKey }: { collection?: stri
     setEditing(null);
     await load();
   };
-  const current = workspace?.collections.find((collection) => collection.id === collectionKey || collection.slug === collectionKey || collection.href.endsWith(`/${collectionKey}`));
+  const current = collectionKey
+    ? workspace?.collections.find((collection) => collection.id === collectionKey || collection.slug === collectionKey || collection.href.endsWith(`/${collectionKey}`))
+    : undefined;
   const rows = useMemo(() => {
     if (!current || !workspace) return [];
     const fields = listFields(current);
@@ -124,7 +126,10 @@ export function BackofficeApp({ collection: collectionKey }: { collection?: stri
             ))}
           </div>
         </nav>
-        <Button variant="outline" onClick={reset}>Reset demo data</Button>
+        <div className="backoffice-nav-actions">
+          <Button asChild variant="outline"><Link href="/">Desk phone</Link></Button>
+          <Button variant="outline" onClick={reset}>Reset demo data</Button>
+        </div>
       </aside>
       <section className="backoffice-content">
         <header className="backoffice-header">

@@ -941,7 +941,7 @@ code {
 
 .settings-seed-list button {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   width: 100%;
   padding: 8px 10px;
@@ -952,6 +952,29 @@ code {
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+.settings-seed-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings-seed-copy strong {
+  font-size: 0.95rem;
+}
+
+.settings-seed-copy span {
+  color: #5c4a38;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.settings-seed-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .settings-seed-list button.is-current {
@@ -1034,6 +1057,7 @@ code {
 .backoffice-nav nav { flex: 1; } .backoffice-nav nav div { display: grid; gap: 0.35rem; }
 .backoffice-nav a { padding: 0.65rem 0.75rem; border-radius: 0.5rem; color: rgba(247, 238, 220, .68); text-decoration: none; }
 .backoffice-nav a:hover, .backoffice-nav a.active { background: rgba(125, 224, 208, .14); color: #fff; }
+.backoffice-nav-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .backoffice-demo, .muted { font-size: .82rem; line-height: 1.5; }
 .backoffice-demo { color: rgba(247, 238, 220, .72); } .muted { color: #5c4a38; }
 .backoffice-content { max-width: 1280px; width: 100%; margin: 0 auto; padding: 2.25rem; }
