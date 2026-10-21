@@ -1,10 +1,11 @@
 import {
-  activateSeed, canTransition, collectionCounts, getActiveSeedId, getLookupRows, getState, resetState,
+  activateSeed, canTransition, collectionCounts, getActiveManifest, getActiveSeedId, getCollections, getLookupRows, getState, resetState,
   updateClaim, updateCustomer, updatePolicy, updatePricingRule, updateProduct,
 } from "@/lib/backoffice/repository";
 import { customerPatchSchema, pricingRuleSchema, productPatchSchema, policyCreateSchema } from "@/lib/backoffice/schemas";
 import { normalizeSpokenPolicyNumber } from "@/lib/policy-number";
 import type { Claim, Customer, Policy, Product } from "@/lib/backoffice/types";
+import type { CollectionDef, DemoRow } from "@/lib/seeds/types";
 import { maskEmail, maskName, maskNumber, maskPhone, redact } from "./redaction";
 import {
   claimCardSchema,
@@ -12,12 +13,15 @@ import {
   getClaimInput,
   getCustomerInput,
   getProductInput,
+  listCollectionsInput,
   listProductsInput,
+  listRowsInput,
   priceIndicationInput,
   productCardSchema,
   reseedInput,
   searchClaimsInput,
   searchCustomersInput,
+  searchRowsInput,
   updateClaimInput,
   updateCustomerInput,
   updatePolicyInput,
@@ -200,6 +204,90 @@ export async function updateDemoClaim(input: unknown) {
   const claim = await updateClaim(claimId, patch);
   if (!claim) return undefined;
   return payload({ updated: true, claim: claimCard(claim), owner: claim.owner, notice: editNotice, summary: `Demo claim ${maskNumber(claim.number)} is now ${claim.status}.` });
+}
+
+// Short strings the manifest already shows. Numbers, checkboxes, and lists are not
+// search text, so a name or ticket number cannot match every row through a nested blob.
+const textFieldTypes = new Set(["text", "select", "date"]);
+
+function collectionSearchFields(collection: CollectionDef) {
+  return collection.fields
+    .filter((field) => textFieldTypes.has(field.type ?? "text"))
+    .map((field) => field.key);
+}
+
+function rowMatches(row: DemoRow, fields: string[], query: string) {
+  const needle = query.toLowerCase();
+  return fields.some((key) => {
+    const value = row[key];
+    return typeof value === "string" && value.toLowerCase().includes(needle);
+  });
+}
+
+function unknownCollection(collection: string) {
+  const manifest = getActiveManifest();
+  const collections = manifest.collections.map((item) => item.id);
+  return payload({
+    available: false,
+    seedId: manifest.id,
+    collection,
+    collections,
+    count: 0,
+    rows: [] as DemoRow[],
+    summary: `No "${collection}" collection on the ${manifest.id} seed. Valid collection ids: ${collections.join(", ")}.`,
+  });
+}
+
+export async function listDemoCollections(input: unknown) {
+  listCollectionsInput.parse(input ?? {});
+  const manifest = getActiveManifest();
+  const collections = manifest.collections.map((collection) => ({
+    id: collection.id,
+    label: collection.label,
+    singular: collection.singular,
+    ...(collection.role ? { role: collection.role } : {}),
+    searchFields: collectionSearchFields(collection),
+  }));
+  return payload({
+    seedId: manifest.id,
+    label: manifest.label,
+    collections,
+    summary: `${manifest.label} (${manifest.id}) collections: ${collections.map((collection) => collection.id).join(", ")}.`,
+  });
+}
+
+export async function listDemoRows(input: unknown) {
+  const { collection } = listRowsInput.parse(input);
+  const manifest = getActiveManifest();
+  const definition = manifest.collections.find((item) => item.id === collection);
+  if (!definition) return unknownCollection(collection);
+  const rows = sortById(getCollections()[definition.id] ?? []);
+  return payload({
+    available: true,
+    seedId: manifest.id,
+    collection: definition.id,
+    count: rows.length,
+    rows,
+    summary: `${rows.length} ${definition.id} row${rows.length === 1 ? "" : "s"} on the ${manifest.id} seed.`,
+  });
+}
+
+export async function searchDemoRows(input: unknown) {
+  const { collection, query } = searchRowsInput.parse(input);
+  const manifest = getActiveManifest();
+  const definition = manifest.collections.find((item) => item.id === collection);
+  if (!definition) return unknownCollection(collection);
+  const fields = collectionSearchFields(definition);
+  const rows = sortById(getCollections()[definition.id] ?? []).filter((row) => rowMatches(row, fields, query));
+  return payload({
+    available: true,
+    seedId: manifest.id,
+    collection: definition.id,
+    query,
+    count: rows.length,
+    rows,
+    summary: `${rows.length} matching row${rows.length === 1 ? "" : "s"} in ${definition.id} on the ${manifest.id} seed.`,
+  });
 }
 
 export async function reseedDemoData(input: unknown) {
