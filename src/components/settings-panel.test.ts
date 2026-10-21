@@ -14,7 +14,7 @@ describe("settings seed switch", () => {
   let container: HTMLDivElement;
 
   beforeEach(async () => {
-    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     await activateSeed("insurance");
     window.localStorage.clear();
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo) => {

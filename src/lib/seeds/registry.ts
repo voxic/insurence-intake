@@ -4,13 +4,14 @@ import type { SeedManifest } from "./types";
 
 export type SeedDefinition = SeedManifest & { file: string };
 
-// A further seed is another entry here plus a JSON file. The backoffice, phone
-// defaults, and catalog/lookup voice tools read this list; they do not special-case ids.
+// `file` is relative to the data directory. A further seed is another entry here
+// plus a JSON file. The backoffice, phone defaults, and catalog/lookup voice
+// tools read this list; they do not special-case ids.
 export const SEEDS: SeedDefinition[] = [
-  { ...INSURANCE_MANIFEST, file: path.join("data", "backoffice", "seed.json") },
-  { ...SUPPORT_MANIFEST, file: path.join("data", "seeds", "support.json") },
-  { ...PROPERTY_MANIFEST, file: path.join("data", "seeds", "property.json") },
-  { ...CLINIC_MANIFEST, file: path.join("data", "seeds", "clinic.json") },
+  { ...INSURANCE_MANIFEST, file: path.join("backoffice", "seed.json") },
+  { ...SUPPORT_MANIFEST, file: path.join("seeds", "support.json") },
+  { ...PROPERTY_MANIFEST, file: path.join("seeds", "property.json") },
+  { ...CLINIC_MANIFEST, file: path.join("seeds", "clinic.json") },
 ];
 
 export function listSeeds() {

@@ -23,7 +23,9 @@ type GlobalWithStore = typeof globalThis & { [STORE_KEY]?: Store };
 function readCollections(seedId: string) {
   const definition = getSeedDefinition(seedId);
   if (!definition) throw new Error(`Unknown demo seed "${seedId}".`);
-  return JSON.parse(readFileSync(path.join(process.cwd(), definition.file), "utf8")) as Record<string, DemoRow[]>;
+  // `file` is relative to data/. A fully dynamic join from cwd makes Turbopack
+  // trace the whole project; the literal segment keeps the trace in data/.
+  return JSON.parse(readFileSync(path.join(process.cwd(), "data", definition.file), "utf8")) as Record<string, DemoRow[]>;
 }
 
 function freshStore(seedId = DEFAULT_SEED_ID): Store {
