@@ -93,6 +93,17 @@ export const reseedInput = z.object({
   seedId: z.string().trim().min(1).max(40).optional().describe("Seed to load: insurance, support, property, or clinic. Omit to reload the active seed."),
 });
 
+const collectionId = z.string().trim().min(1).max(40).describe(
+  "Collection id from list_demo_collections. Examples: customers, tickets, residents, patients, policies, claims, workOrders, appointments.",
+);
+// Omitted arguments still parse. The published schema stays an empty object.
+export const listCollectionsInput = z.object({}).prefault({});
+export const listRowsInput = z.object({ collection: collectionId });
+export const searchRowsInput = z.object({
+  collection: collectionId,
+  query: z.string().trim().min(1).max(80).describe("Matched against short text on each row, such as name, number, status, or subject. Case-insensitive."),
+});
+
 export const customerCardSchema = z.object({
   customerId,
   name: z.string(),

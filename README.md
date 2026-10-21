@@ -102,14 +102,39 @@ Seeds are declared in `src/lib/seeds/registry.ts`: an id, label, summary, agent 
 The demo MCP server runs **inside the Next.js process** at `/mcp` and reads and
 writes the same in-memory backoffice store as `/backoffice` and the voice bridge.
 It exposes redacted synthetic customers, products, price indications, and claims,
-and it never returns call transcripts. Price results are non-binding indications,
-not quotes. Confirmed demo-claim creation stays on the Next.js server
-(`POST /api/realtime/tools`) with the existing call-session confirmation binding —
-there is no create-claim MCP tool.
+plus the collections on whichever seed is active, and it never returns call
+transcripts. Price results are non-binding indications, not quotes. Confirmed
+demo-claim creation stays on the Next.js server (`POST /api/realtime/tools`) with
+the existing call-session confirmation binding — there is no create-claim MCP tool.
 
 Read tools: `search_demo_customers`, `get_demo_customer`, `list_demo_products`,
 `get_demo_product`, `get_demo_price_indication`, `search_demo_claims`,
 `get_demo_claim_status`.
+
+Collection tools read the **active in-memory seed** (the same object the
+backoffice edits). One handler serves every seed: the collection ids and the
+short text fields they search come from that seed's manifest. Rows come from
+that in-memory store. A backoffice save or an `update_*` tool is visible on
+the next call; a restart, reseed, or seed switch drops it.
+
+| Seed | Collection ids |
+| --- | --- |
+| `insurance` | `customers`, `policies`, `products`, `pricingRules`, `claims` |
+| `support` | `customers`, `tickets`, `topics` |
+| `property` | `residents`, `properties`, `workOrders`, `categories` |
+| `clinic` | `patients`, `appointments`, `services`, `instructions` |
+
+People records are `customers` (insurance and support), `residents` (property), and `patients` (clinic). Case records are `policies` and `claims` (insurance), `tickets` (support), `workOrders` (property), and `appointments` (clinic). The other ids in the table are listable the same way.
+
+| Tool | Input | Effect |
+| --- | --- | --- |
+| `list_demo_collections` | none | Ids, labels, roles, and short-text search fields for the active seed. |
+| `list_demo_rows` | `collection` | Every row of that collection. |
+| `search_demo_rows` | `collection`, `query` | Rows whose name, number, status, subject, or other short text field contains `query`. |
+
+`query` is a case-insensitive substring, so a name, ticket number, or subject returns the matching rows. An unknown collection — `tickets` on insurance, `customers` on clinic — returns `rows: []` and the valid ids in `collections`. The same bearer as the other tools applies.
+
+These three tools pass through the shared redactor, so `address`, `premium`, `reserve`, `paidAmount`, claim `events`, and claim notes stay out of the response. Names, emails, phones, and ticket or policy numbers are **not** masked here, unlike `search_demo_customers` and `search_demo_claims`, so an edited name or subject can be read back.
 
 Write tools (in-memory only; every change is gone after a restart or redeploy):
 
@@ -122,8 +147,10 @@ Write tools (in-memory only; every change is gone after a restart or redeploy):
 | `update_demo_claim` | `claimId`, `customerId` + any of `status`, `owner`, `reserve` | Forward-only status moves (reported → reviewing → approved → closed). |
 | `reseed_demo_data` | `confirmation: "RESEED_DEMO_DATA"`, optional `seedId` | Wipes memory and reloads the active seed. Pass `seedId` (`insurance`, `support`, `property`, or `clinic`) to switch seeds and reseed. Same bearer as the other tools. Omitting `seedId` matches **Reset demo data** for the seed already loaded. A process restart always boots `insurance`. |
 
-Responses stay redacted: names, phones, emails, and policy/claim numbers are
-masked, and premium/reserve amounts are stripped, exactly as for the read tools.
+The insurance card tools stay redacted: names, phones, emails, and policy/claim
+numbers are masked, and premium/reserve amounts are stripped. `list_demo_rows`
+and `search_demo_rows` strip the same forbidden keys but leave names and numbers
+readable, as described above.
 
 ### Local Streamable HTTP (authenticated)
 
@@ -161,7 +188,8 @@ Walkthrough once the connector is attached:
 2. Search a synthetic customer (`search_demo_customers` with name `Ada`).
 3. Look up a claim card (`search_demo_claims` with a partial claim number such as `26002`), then `get_demo_claim_status` with that claim ID **and** its customer ID.
 4. Change something: `update_demo_product` with `productId: prd_auto` and a new `description`, then open `/backoffice/products` — the card shows the new text. `reseed_demo_data` with `confirmation: RESEED_DEMO_DATA` puts the seed back.
-5. Confirm there is no create-claim tool on MCP. To file a demo claim, use the desk-phone Eve flow (verified policy + single-use confirmation on the Next app).
+5. `list_demo_collections`, then `list_demo_rows` with `collection: customers`. `search_demo_rows` with `query: Ada` returns that customer only. Switch with `reseed_demo_data` and `seedId: support`, then search `tickets` for `204`. Asking for `tickets` on the insurance seed returns the insurance collection ids and no rows.
+6. Confirm there is no create-claim tool on MCP. To file a demo claim, use the desk-phone Eve flow (verified policy + single-use confirmation on the Next app).
 
 Do not paste `MCP_AUTH_TOKEN` into client-side app code, README screenshots, or git.
 

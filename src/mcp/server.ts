@@ -5,11 +5,14 @@ import {
   getCustomer,
   getPriceIndication,
   getProduct,
+  listDemoCollections,
+  listDemoRows,
   listProducts,
   readResource,
   reseedDemoData,
   searchClaims,
   searchCustomers,
+  searchDemoRows,
   updateDemoClaim,
   updateDemoCustomer,
   updateDemoPolicy,
@@ -20,11 +23,14 @@ import {
   getClaimInput,
   getCustomerInput,
   getProductInput,
+  listCollectionsInput,
   listProductsInput,
+  listRowsInput,
   priceIndicationInput,
   reseedInput,
   searchClaimsInput,
   searchCustomersInput,
+  searchRowsInput,
   updateClaimInput,
   updateCustomerInput,
   updatePolicyInput,
@@ -51,6 +57,7 @@ function tool<T>(operation: (input: T) => Promise<unknown>) {
 export const mcpToolNames = [
   "search_demo_customers", "get_demo_customer", "list_demo_products", "get_demo_product",
   "get_demo_price_indication", "search_demo_claims", "get_demo_claim_status",
+  "list_demo_collections", "list_demo_rows", "search_demo_rows",
   "update_demo_customer", "update_demo_product", "update_demo_policy", "update_demo_pricing_rule",
   "update_demo_claim", "reseed_demo_data",
 ] as const;
@@ -85,6 +92,18 @@ export function createMcpServer() {
     title: "Get demo claim status", description: "Get a synthetic claim status after supplying its customer ID.",
     inputSchema: getClaimInput, annotations: readOnly,
   }, tool(getClaim));
+  server.registerTool("list_demo_collections", {
+    title: "List demo collections", description: "List the collection ids on the active in-memory seed. Use these ids with list_demo_rows and search_demo_rows.",
+    inputSchema: listCollectionsInput, annotations: readOnly,
+  }, tool(listDemoCollections));
+  server.registerTool("list_demo_rows", {
+    title: "List demo rows", description: "List every row of one collection on the active in-memory seed. An unknown collection returns no rows and the valid collection ids.",
+    inputSchema: listRowsInput, annotations: readOnly,
+  }, tool(listDemoRows));
+  server.registerTool("search_demo_rows", {
+    title: "Search demo rows", description: "Search one collection on the active in-memory seed by name, number, status, subject, and other short text. Returns matching rows only. An unknown collection returns no rows and the valid collection ids.",
+    inputSchema: searchRowsInput, annotations: readOnly,
+  }, tool(searchDemoRows));
 
   // Edits change the shared in-memory demo store that the backoffice UI and the voice
   // bridge read. They are never written to disk and vanish on restart.
